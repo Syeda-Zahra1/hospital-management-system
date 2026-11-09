@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>📄 Medical Records & Prescriptions</h2>
+<table>
+  <tr>
+    <th>Date</th>
+    <th>Patient</th>
+    <th>Doctor</th>
+    <th>Diagnosis</th>
+    <th>Prescription Notes</th>
+  </tr>
+  {% for r in records %}
+  <tr>
+    <td>{{ r.visit_date }}</td>
+    <td>{{ r.patient_name }}</td>
+    <td>Dr. {{ r.doctor_name }}</td>
+    <td>{{ r.diagnosis }}</td>
+    <td>{{ r.prescription }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5" style="text-align: center;">No medical records found.</td></tr>
+  {% endfor %}
+</table>
+{% endblock %}

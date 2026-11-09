@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hospital Management System</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header>
+  <h1>🏥 Hospital Management System</h1>
+<nav>
+    {% if session.get('role') == 'patient' %}
+        <a href="/patient/dashboard">My Dashboard</a>
+        <a href="/logout" class="logout-btn">Logout</a>
+    {% elif session.get('user_id') %}
+        <a href="/">Dashboard</a>
+        <a href="/patients">Patients</a>
+        <a href="/rooms">Rooms</a>
+        <a href="/doctors">Doctors</a>
+        <a href="/appointments">Appointments</a>
+        <a href="/inventory">Inventory</a>
+        <a href="/pharmacy">Pharmacy</a>
+        <a href="/lab">Laboratory</a>
+        <a href="/billing">Billing</a>
+        <a href="/staff">Staff</a>
+        {% if session.get('role') == 'admin' %}
+        <a href="/admin/dashboard" style="background: rgba(255,255,255,0.3); font-weight: bold;">Admin Analytics</a>
+        <a href="/admin/logs">Audit Logs</a>
+    {% endif %}
+        <span class="user-info">👤 {{ session.full_name }} ({{ session.role }})</span>
+        <a href="/logout" class="logout-btn">Logout</a>
+    {% else %}
+        <a href="/login">Login</a>
+        <a href="/register">Patient Registration</a>
+    {% endif %}
+</nav>
+
+
+</header>
+<main>
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="flash {{cat}}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</main>
+<footer><p>© 2025 Hospital Management System | University Project</p></footer>
+</body>
+</html>

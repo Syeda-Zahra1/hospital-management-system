@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Login — Hospital Management System</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+
+<body class="login-body">
+
+
+<div class="login-box">
+  <h1>🏥 Hospital Management</h1>
+  <h2>Login</h2>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% for cat, msg in messages %}
+      <div class="flash {{cat}}">{{ msg }}</div>
+    {% endfor %}
+  {% endwith %}
+
+  <form method="POST" action="/login">
+    <label>Username</label>
+    <input name="username" placeholder="Enter username" required autofocus>
+
+    <label>Password</label>
+    <input name="password" type="password" placeholder="Enter password" required>
+
+    <button type="submit">🔐 Login</button>
+  </form>
+
+  <p class="hint">
+    <strong>Demo accounts:</strong><br>
+    Admin: admin / admin123<br>
+    Doctor: dr.ahmed / doc123<br>
+    Receptionist: reception1 / rec123<br>
+    Pharmacist: pharmacy1 / pharm123
+  </p>
+
+    <p style="text-align:center; margin-top:20px; font-size:14px;">
+      New Patient? <a href="/register" style="color:#0d6efd; font-weight:bold; text-decoration:none;">Register Here</a>
+  </p>
+</div>
+
+</body>
+</html>

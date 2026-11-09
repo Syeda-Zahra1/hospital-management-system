@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Welcome, {{ patient.first_name }}! 👋</h2>
+<p style="color:#666; margin-bottom:20px;">Patient ID: #{{ patient.patient_id }} | Blood Group: {{ patient.blood_group }}</p>
+
+<div class="cards">
+  <div class="card">
+    <h3>{{ appointments|length }}</h3>
+    <p>Your Appointments</p>
+  </div>
+  <div class="card">
+    <h3>{{ records|length }}</h3>
+    <p>Medical Records</p>
+  </div>
+  <div class="card alert">
+    <h3>{{ bills|length }}</h3>
+    <p>Total Bills</p>
+  </div>
+</div>
+
+<h3 style="margin-top:30px;">Your Appointments</h3>
+<table>
+  <tr><th>Date</th><th>Doctor</th><th>Department</th><th>Reason</th><th>Status</th></tr>
+  {% for a in appointments %}
+  <tr>
+    <td>{{ a.appointment_date }}</td>
+    <td>Dr. {{ a.doctor_name }}</td>
+    <td>{{ a.dept_name }}</td>
+    <td>{{ a.reason }}</td>
+    <td>{{ a.status }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="5" style="text-align:center; color:#888;">No appointments yet.</td></tr>
+  {% endfor %}
+</table>
+
+<h3 style="margin-top:30px;">Your Medical Records</h3>
+<table>
+  <tr><th>Date</th><th>Doctor</th><th>Diagnosis</th><th>Prescription</th></tr>
+  {% for r in records %}
+  <tr>
+    <td>{{ r.visit_date }}</td>
+    <td>Dr. {{ r.doctor_name }}</td>
+    <td>{{ r.diagnosis }}</td>
+    <td>{{ r.prescription }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="4" style="text-align:center; color:#888;">No records yet.</td></tr>
+  {% endfor %}
+</table>
+
+<h3 style="margin-top:30px;">Your Bills</h3>
+<table>
+  <tr><th>Bill ID</th><th>Date</th><th>Amount</th><th>Status</th></tr>
+  {% for b in bills %}
+  <tr>
+    <td>#{{ b.bill_id }}</td>
+    <td>{{ b.bill_date }}</td>
+    <td>Rs. {{ b.total_amount }}</td>
+    {% if b.payment_status == 'Paid' %}
+    <td style="color:green; font-weight:bold;">{{ b.payment_status }}</td>
+    {% else %}
+    <td style="color:red; font-weight:bold;">{{ b.payment_status }}</td>
+    {% endif %}
+  </tr>
+  {% endfor %}
+</table>
+
+{% endblock %}

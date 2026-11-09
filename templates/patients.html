@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>Patients</h2>
+
+<form method="POST" action="/patients/add" class="form-box">
+  <input name="first_name" placeholder="First Name" required>
+  <input name="last_name" placeholder="Last Name" required>
+  <input name="dob" type="date" required>
+  <select name="gender" required>
+    <option value="">Gender</option><option>Male</option><option>Female</option><option>Other</option>
+  </select>
+  <input name="phone" placeholder="Phone">
+  <input name="email" placeholder="Email" type="email">
+  <input name="address" placeholder="Address">
+  <input name="blood_group" placeholder="Blood Group">
+  <button type="submit">Add Patient</button>
+</form>
+
+<table>
+  <tr><th>ID</th><th>Name</th><th>DOB</th><th>Gender</th><th>Phone</th><th>Blood</th><th>Action</th></tr>
+  {% for p in patients %}
+  <tr>
+    <td>{{ p.patient_id }}</td>
+    <td>{{ p.first_name }} {{ p.last_name }}</td>
+    <td>{{ p.dob }}</td>
+    <td>{{ p.gender }}</td>
+    <td>{{ p.phone }}</td>
+    <td>{{ p.blood_group }}</td>
+    <td><a href="/patients/delete/{{p.patient_id}}" class="del" onclick="return confirm('Delete?')">Delete</a></td>
+  </tr>
+  {% endfor %}
+</table>
+{% endblock %}

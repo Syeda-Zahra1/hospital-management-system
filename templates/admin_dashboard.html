@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block content %}
+<h2>📊 Admin Analytics Dashboard</h2>
+
+<div class="cards" style="margin-bottom: 30px;">
+  <div class="card" style="border-left-color: #198754;">
+    <h3 id="revenue-card">Rs. 0</h3>
+    <p>Total Revenue</p>
+  </div>
+  <div class="card" style="border-left-color: #0d6efd;">
+    <h3><a href="/admin/logs" style="color: #0d6efd; text-decoration: none;">View Logs 📝</a></h3>
+    <p>Audit Trail</p>
+  </div>
+</div>
+
+<div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 30px;">
+    <div style="flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+        <h3>Patient Registrations</h3>
+        <canvas id="patientChart"></canvas>
+    </div>
+    <div style="flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
+        <h3>Appointment Status</h3>
+        <canvas id="apptChart"></canvas>
+    </div>
+</div>
+
+<h3>⚠️ Low Stock Alerts</h3>
+<table>
+  <tr><th>Medicine</th><th>Remaining Quantity</th></tr>
+  {% for med in low_stock_data %}
+  <tr class="low">
+      <td>{{ med.medicine_name }}</td>
+      <td style="color: #dc3545; font-weight: bold;">{{ med.quantity }}</td>
+  </tr>
+  {% else %}
+  <tr><td colspan="2" style="text-align: center;">All medicines are sufficiently stocked.</td></tr>
+  {% endfor %}
+</table>
+
+<!-- Load Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        fetch('/admin/analytics')
+            .then(response => response.json())
+            .then(data => {
+                // 1. Update Revenue
+                document.getElementById('revenue-card').innerText = 'Rs. ' + data.revenue.toLocaleString();
+
+                // 2. Patient Chart (Bar Chart)
+                const pLabels = data.patients.map(item => item.month).reverse();
+                const pCounts = data.patients.map(item => item.count).reverse();
+                
+                if (pLabels.length > 0) {
+                    new Chart(document.getElementById('patientChart'), {
+                        type: 'bar',
+                        data: {
+                            labels: pLabels,
+                            datasets: [{ label: 'New Patients', data: pCounts, backgroundColor: '#0d6efd' }]
+                        }
+                    });
+                } else {
+                    document.getElementById('patientChart').outerHTML = "<p style='color:#888;'>No patient data available yet.</p>";
+                }
+
+                // 3. Appointment Chart (Doughnut Chart)
+                const aLabels = data.appointments.map(item => item.status);
+                const aCounts = data.appointments.map(item => item.count);
+
+                if (aLabels.length > 0) {
+                    new Chart(document.getElementById('apptChart'), {
+                        type: 'doughnut',
+                        data: {
+                            labels: aLabels,
+                            datasets: [{ data: aCounts, backgroundColor: ['#198754', '#ffc107', '#dc3545'] }]
+                        }
+                    });
+                } else {
+                    document.getElementById('apptChart').outerHTML = "<p style='color:#888;'>No appointment data available yet.</p>";
+                }
+            })
+            .catch(err => console.log("Error loading analytics:", err));
+    });
+</script>
+{% endblock %}
