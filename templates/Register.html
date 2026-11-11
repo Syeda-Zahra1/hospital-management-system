@@ -1,71 +1,103 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Patient Registration</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body class="login-body">
-<div class="login-box registration-box">
-  <h1>🏥 Hospital Management</h1>
-  <h2>Patient Registration</h2>
-  <p class="registration-intro">Create your patient account online to access your portal.</p>
+{% extends "base.html" %}
+{% block title %}Patient registration | HMS Care{% endblock %}
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for cat, msg in messages %}
-      <div class="flash {{cat}}">{{ msg }}</div>
-    {% endfor %}
-  {% endwith %}
+{% block auth_content %}
+<div class="auth-page auth-register-page">
+  <div class="auth-shell">
+    <section class="auth-visual">
+      <div class="auth-visual__content">
+        <div class="auth-brand">
+          <div class="auth-brand__mark"><i data-lucide="heart-pulse"></i></div>
+          <span>HMS Care</span>
+        </div>
+        <h1>Start your care journey with confidence.</h1>
+        <p>Create your patient account to access appointments, records, prescriptions, and billing information in one trusted portal.</p>
+        <img class="auth-illustration auth-illustration--portal" src="{{ url_for('static', filename='patient-portal.svg') }}" alt="Illustration of a patient portal with appointment and health information">
+      </div>
+    </section>
 
-  <form method="POST" action="/register">
-    <div style="display:flex; gap:10px;">
-        <div style="flex:1">
+    <section class="auth-card">
+      <h2>Create account</h2>
+      <p class="auth-card__subtitle">Register as a new patient</p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="flash flash-{{ cat if cat else 'info' }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+
+      <form method="POST" action="/register" class="auth-form" data-loading>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="form-grid">
+          <div class="form-group">
             <label>First Name</label>
             <input name="first_name" maxlength="50" autocomplete="given-name" value="{{ request.form.get('first_name', '') }}" required>
-        </div>
-        <div style="flex:1">
+            <span class="validation-hint">Required</span>
+          </div>
+
+          <div class="form-group">
             <label>Last Name</label>
             <input name="last_name" maxlength="50" autocomplete="family-name" value="{{ request.form.get('last_name', '') }}" required>
-        </div>
-    </div>
+            <span class="validation-hint">Required</span>
+          </div>
 
-    <label>Date of Birth</label>
-    <input name="dob" type="date" autocomplete="bday" required>
+          <div class="form-group">
+            <label>Date of Birth</label>
+            <input name="dob" type="date" autocomplete="bday" required>
+            <span class="validation-hint">Use your date of birth</span>
+          </div>
 
-    <div style="display:flex; gap:10px;">
-        <div style="flex:1">
+          <div class="form-group">
             <label>Gender</label>
-            <select name="gender" required style="width:100%; padding:10px; margin-top:5px;">
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-                <option value="Other">Other</option>
+            <select name="gender" required>
+              <option value="">Select gender</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+              <option value="Other">Other</option>
             </select>
-        </div>
-        <div style="flex:1">
+            <span class="validation-hint">Required</span>
+          </div>
+
+          <div class="form-group">
             <label>Blood Group</label>
-            <input name="blood_group" placeholder="e.g., O+">
+            <input name="blood_group" placeholder="e.g., O+, A-, B+" value="{{ request.form.get('blood_group', '') }}">
+            <span class="helper-text">Example: O+, A-, B+</span>
+          </div>
+
+          <div class="form-group">
+            <label>Phone</label>
+            <input name="phone" type="tel" maxlength="20" autocomplete="tel" value="{{ request.form.get('phone', '') }}" required>
+            <span class="validation-hint">Required</span>
+          </div>
+
+          <div class="form-group full">
+            <label>Address</label>
+            <input name="address" autocomplete="street-address" value="{{ request.form.get('address', '') }}">
+            <span class="helper-text">Optional</span>
+          </div>
+
+          <div class="form-group full">
+            <label>Email</label>
+            <input name="email" type="email" maxlength="100" autocomplete="email" value="{{ request.form.get('email', '') }}" required>
+            <span class="validation-hint">This will be used as your username</span>
+          </div>
+
+          <div class="form-group full">
+            <label>Password</label>
+            <input name="password" type="password" minlength="8" autocomplete="new-password" required>
+            <span class="helper-text">Use at least 8 characters</span>
+          </div>
         </div>
-    </div>
 
-    <label>Phone</label>
-    <input name="phone" type="tel" maxlength="20" autocomplete="tel" value="{{ request.form.get('phone', '') }}" required>
+        <button type="submit" class="btn btn-primary" style="width:100%; margin-top: 6px;">
+          <span class="spinner" hidden></span>
+          <span>Create account</span>
+        </button>
+      </form>
 
-    <label>Address</label>
-    <input name="address" autocomplete="street-address" value="{{ request.form.get('address', '') }}">
-
-    <label>Email (This will be your Username)</label>
-    <input name="email" type="email" maxlength="100" autocomplete="email" value="{{ request.form.get('email', '') }}" required>
-
-    <label>Password</label>
-    <input name="password" type="password" minlength="8" autocomplete="new-password" required>
-    <small class="registration-intro">Use at least 8 characters.</small>
-
-    <button type="submit">Create Account</button>
-  </form>
-  
-  <p style="text-align:center; margin-top:15px; font-size:14px;">
-      Already have an account? <a href="/login" style="color:#0d6efd;">Login here</a>
-  </p>
+      <p class="auth-links">Already registered? <a href="/login">Login here</a></p>
+    </section>
+  </div>
 </div>
-</body>
-</html>
+{% endblock %}

@@ -1,24 +1,83 @@
 {% extends "base.html" %}
+{% block title %}Medical Records | HMS Care{% endblock %}
+{% block page_title %}Medical records{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Clinical history and prescriptions</p>{% endblock %}
+
 {% block content %}
-<h2>📄 Medical Records & Prescriptions</h2>
-<table>
-  <tr>
-    <th>Date</th>
-    <th>Patient</th>
-    <th>Doctor</th>
-    <th>Diagnosis</th>
-    <th>Prescription Notes</th>
-  </tr>
-  {% for r in records %}
-  <tr>
-    <td>{{ r.visit_date }}</td>
-    <td>{{ r.patient_name }}</td>
-    <td>Dr. {{ r.doctor_name }}</td>
-    <td>{{ r.diagnosis }}</td>
-    <td>{{ r.prescription }}</td>
-  </tr>
-  {% else %}
-  <tr><td colspan="5" style="text-align: center;">No medical records found.</td></tr>
-  {% endfor %}
-</table>
+{% if session.get('role') in ['admin', 'doctor'] %}
+<section class="form-card">
+  <div class="section-head">
+    <div>
+      <h2>Write a prescription</h2>
+      <p class="inline-note">Create a clinical record and send medication to the pharmacy queue.</p>
+    </div>
+    <span class="badge success">Clinician access</span>
+  </div>
+  <form method="POST" action="/doctor/add_prescription" class="form-grid" data-loading>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+      <label for="record-patient">Patient</label>
+      <select id="record-patient" name="patient_id" required>
+        <option value="">Select a patient</option>
+        {% for p in patients %}<option value="{{ p.patient_id }}">{{ p.first_name }} {{ p.last_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="record-doctor">Prescribing doctor</label>
+      <select id="record-doctor" name="doctor_id" required>
+        <option value="">Select a doctor</option>
+        {% for d in doctors %}<option value="{{ d.doctor_id }}">Dr. {{ d.first_name }} {{ d.last_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group full">
+      <label for="record-diagnosis">Diagnosis</label>
+      <input id="record-diagnosis" name="diagnosis" placeholder="Enter diagnosis" required>
+    </div>
+    <div class="form-group">
+      <label for="record-medicine">Medicine</label>
+      <select id="record-medicine" name="medicine_id" required>
+        <option value="">Select a medicine</option>
+        {% for m in medicines %}<option value="{{ m.medicine_id }}">{{ m.medicine_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="record-dosage">Dosage instructions</label>
+      <input id="record-dosage" name="dosage" placeholder="e.g. 1 tablet twice daily" required>
+    </div>
+    <div class="form-group">
+      <label for="record-quantity">Quantity</label>
+      <input id="record-quantity" name="quantity" type="number" min="1" value="1" required>
+    </div>
+    <div class="form-group full">
+      <button type="submit" class="btn btn-primary"><i data-lucide="send"></i><span>Save prescription</span></button>
+    </div>
+  </form>
+</section>
+{% endif %}
+
+<section class="table-card">
+  <div class="section-head" style="padding:22px 22px 0;">
+    <div><h2>Patient records</h2><p class="inline-note">{{ records|length }} records</p></div>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Date</th><th>Patient</th><th>Doctor</th><th>Diagnosis</th><th>Prescription notes</th></tr></thead>
+      <tbody>
+        {% for r in records %}
+        <tr>
+          <td>{{ r.visit_date }}</td>
+          <td><strong>{{ r.patient_name }}</strong></td>
+          <td>{{ ('Dr. ' ~ r.doctor_name) if r.doctor_name else '—' }}</td>
+          <td>{{ r.diagnosis or '—' }}</td>
+          <td>{{ r.prescription or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td class="empty-state-cell" colspan="5">
+          {{ empty_state('file-text', 'No medical records', 'Patient history and prescription records will appear here.') }}
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% endblock %}

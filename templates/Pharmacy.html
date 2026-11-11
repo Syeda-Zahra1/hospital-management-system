@@ -1,36 +1,50 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>💊 Pharmacy Dashboard</h2>
-<p style="color: #666;">Pending Prescriptions from Doctors</p>
+{% block title %}Pharmacy | HMS Care{% endblock %}
+{% block page_title %}Pharmacy queue{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Review and dispense pending prescriptions</p>{% endblock %}
 
-<table style="margin-top: 20px;">
-  <tr>
-    <th>Patient</th>
-    <th>Doctor</th>
-    <th>Diagnosis</th>
-    <th>Medicine</th>
-    <th>Dosage</th>
-    <th>Action</th>
-  </tr>
+{% block content %}
+<div class="section-head">
+  <div>
+    <h2>Pending prescriptions</h2>
+    <p class="inline-note">{{ prescriptions|length }} awaiting dispense</p>
+  </div>
+</div>
+
+{% if prescriptions %}
+<div class="card-grid">
   {% for p in prescriptions %}
-  <tr>
-    <td><strong>{{ p.patient_name }}</strong></td>
-    <td>Dr. {{ p.doctor_name }}</td>
-    <td>{{ p.diagnosis }}</td>
-    <td style="color: #0d6efd; font-weight: bold;">{{ p.medicine_name }}</td>
-    <td>{{ p.dosage }}</td>
-    <td>
-      <a href="/pharmacy/dispense/{{ p.prescription_id }}/{{ p.medicine_id }}" 
-         class="del" style="background: #198754; padding: 5px 10px; color: white; border-radius: 4px; text-decoration: none;"
-         onclick="return confirm('Dispense this medicine? 1 unit will be deducted from stock.')">
-         ✅ Dispense
-      </a>
-    </td>
-  </tr>
-  {% else %}
-  <tr>
-    <td colspan="6" style="text-align: center; color: #888;">No pending prescriptions right now.</td>
-  </tr>
+  <article class="prescription-card">
+    <div class="prescription-card__head">
+      <div>
+        <h3 class="prescription-card__name">{{ p.patient_name }}</h3>
+        <p class="prescription-card__doctor">Prescribed by Dr. {{ p.doctor_name }}</p>
+      </div>
+      {{ badge('Pending', 'warning') }}
+    </div>
+    <div>
+      <span class="inline-note">Diagnosis</span>
+      <p class="prescription-card__diagnosis">{{ p.diagnosis or 'No diagnosis provided' }}</p>
+    </div>
+    <div>
+      <span class="inline-note">Medicine</span>
+      <div class="medicine-pill"><i data-lucide="pill"></i><strong>{{ p.medicine_name }}</strong></div>
+    </div>
+    <div class="room-card__footer">
+      <span class="badge neutral">{{ p.dosage }} · Qty {{ p.quantity }}</span>
+      <form method="POST" action="/pharmacy/dispense/{{ p.prescription_id }}/{{ p.medicine_id }}"
+            data-confirm="Dispense {{ p.quantity }} unit(s) of {{ p.medicine_name }} to {{ p.patient_name }}?"
+            data-loading>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-primary"><i data-lucide="check"></i><span>Dispense</span></button>
+      </form>
+    </div>
+  </article>
   {% endfor %}
-</table>
+</div>
+{% else %}
+<div class="panel">
+  {{ empty_state('circle-check', 'No pending prescriptions', 'The queue is clear. New prescriptions will appear here when a clinician creates them.') }}
+</div>
+{% endif %}
 {% endblock %}

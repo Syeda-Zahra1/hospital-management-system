@@ -1,33 +1,67 @@
 {% extends "base.html" %}
+{% block title %}Patients | HMS Care{% endblock %}
+{% block page_title %}Patients{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Manage patient records and contact information</p>{% endblock %}
+
 {% block content %}
-<h2>Patients</h2>
+<div class="toolbar">
+  <p class="inline-note">{{ patients|length }} patient records</p>
+  <div class="controls">
+    <label class="search-box">
+      <i data-lucide="search"></i>
+      <input type="search" data-table-search="#patientTable" placeholder="Search patients" aria-label="Search patients">
+    </label>
+  </div>
+</div>
 
-<form method="POST" action="/patients/add" class="form-box">
-  <input name="first_name" placeholder="First Name" required>
-  <input name="last_name" placeholder="Last Name" required>
-  <input name="dob" type="date" required>
-  <select name="gender" required>
-    <option value="">Gender</option><option>Male</option><option>Female</option><option>Other</option>
-  </select>
-  <input name="phone" placeholder="Phone">
-  <input name="email" placeholder="Email" type="email">
-  <input name="address" placeholder="Address">
-  <input name="blood_group" placeholder="Blood Group">
-  <button type="submit">Add Patient</button>
-</form>
+{% if session.get('role') in ['admin', 'receptionist'] %}
+<details class="form-card form-disclosure">
+  <summary><span><i data-lucide="user-plus"></i> Add a patient</span><i data-lucide="chevron-down"></i></summary>
+  <form method="POST" action="/patients/add" class="form-grid" data-loading>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group"><label for="patient-first-name">First name</label><input id="patient-first-name" name="first_name" autocomplete="given-name" required></div>
+    <div class="form-group"><label for="patient-last-name">Last name</label><input id="patient-last-name" name="last_name" autocomplete="family-name" required></div>
+    <div class="form-group"><label for="patient-dob">Date of birth</label><input id="patient-dob" name="dob" type="date" required></div>
+    <div class="form-group"><label for="patient-gender">Gender</label><select id="patient-gender" name="gender" required><option value="">Select gender</option><option>Male</option><option>Female</option><option>Other</option></select></div>
+    <div class="form-group"><label for="patient-phone">Phone</label><input id="patient-phone" name="phone" type="tel"></div>
+    <div class="form-group"><label for="patient-email">Email</label><input id="patient-email" name="email" type="email"></div>
+    <div class="form-group full"><label for="patient-address">Address</label><input id="patient-address" name="address"></div>
+    <div class="form-group"><label for="patient-blood">Blood group</label><input id="patient-blood" name="blood_group" placeholder="e.g., O+"></div>
+    <div class="form-group" style="justify-content:flex-end"><button type="submit" class="btn btn-primary"><i data-lucide="user-plus"></i><span>Save patient</span></button></div>
+  </form>
+</details>
+{% endif %}
 
-<table>
-  <tr><th>ID</th><th>Name</th><th>DOB</th><th>Gender</th><th>Phone</th><th>Blood</th><th>Action</th></tr>
-  {% for p in patients %}
-  <tr>
-    <td>{{ p.patient_id }}</td>
-    <td>{{ p.first_name }} {{ p.last_name }}</td>
-    <td>{{ p.dob }}</td>
-    <td>{{ p.gender }}</td>
-    <td>{{ p.phone }}</td>
-    <td>{{ p.blood_group }}</td>
-    <td><a href="/patients/delete/{{p.patient_id}}" class="del" onclick="return confirm('Delete?')">Delete</a></td>
-  </tr>
-  {% endfor %}
-</table>
+<section class="table-card">
+  <div class="table-wrap">
+    <table id="patientTable">
+      <thead><tr><th>Patient</th><th>Date of birth</th><th>Gender</th><th>Phone</th><th>Blood group</th>{% if session.get('role') == 'admin' %}<th>Actions</th>{% endif %}</tr></thead>
+      <tbody>
+        {% for p in patients %}
+        <tr>
+          <td><strong>{{ p.first_name }} {{ p.last_name }}</strong><div class="inline-note">Patient #{{ p.patient_id }}</div></td>
+          <td>{{ p.dob }}</td>
+          <td>{{ p.gender }}</td>
+          <td>{{ p.phone or '—' }}</td>
+          <td>{{ p.blood_group or '—' }}</td>
+          {% if session.get('role') == 'admin' %}
+          <td>
+            <form method="POST" action="/patients/delete/{{ p.patient_id }}" class="inline-form"
+                  data-confirm="Delete the patient record for {{ p.first_name }} {{ p.last_name }}? This action cannot be undone.">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="delete-btn" aria-label="Delete {{ p.first_name }} {{ p.last_name }}"><i data-lucide="trash-2"></i></button>
+            </form>
+          </td>
+          {% endif %}
+        </tr>
+        {% else %}
+        <tr><td class="empty-state-cell" colspan="{% if session.get('role') == 'admin' %}6{% else %}5{% endif %}">
+          {{ empty_state('users', 'No patients yet', 'Patient records will appear here when registered.') }}
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+<p class="table-summary">Showing {{ patients|length }} patient records</p>
 {% endblock %}

@@ -1,17 +1,47 @@
 {% extends "base.html" %}
+{% block title %}Doctors | HMS Care{% endblock %}
+{% block page_title %}Medical team{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Find a specialist and view department information</p>{% endblock %}
+
 {% block content %}
-<h2>Doctors</h2>
-<table>
-  <tr><th>ID</th><th>Name</th><th>Specialization</th><th>Department</th><th>Phone</th><th>Salary</th></tr>
-  {% for d in doctors %}
-  <tr>
-    <td>{{ d.doctor_id }}</td>
-    <td>Dr. {{ d.first_name }} {{ d.last_name }}</td>
-    <td>{{ d.specialization }}</td>
-    <td>{{ d.dept_name }}</td>
-    <td>{{ d.phone }}</td>
-    <td>{{ d.salary }}</td>
-  </tr>
-  {% endfor %}
-</table>
+<div class="toolbar">
+  <div>
+    <p class="inline-note">{{ doctors|length }} doctors in the directory</p>
+  </div>
+  <label class="search-box">
+    <i data-lucide="search"></i>
+    <input type="search" id="doctorSearch" data-table-search="#doctorTable" placeholder="Search doctors">
+  </label>
+</div>
+
+<section class="table-card">
+  <div class="table-wrap">
+    <table id="doctorTable">
+      <thead>
+        <tr>
+          <th>Doctor</th>
+          <th>Specialization</th>
+          <th>Department</th>
+          <th>Phone</th>
+          {% if session.get('role') == 'admin' %}<th>Salary</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in doctors %}
+        <tr>
+          <td><strong>Dr. {{ d.first_name }} {{ d.last_name }}</strong></td>
+          <td>{{ d.specialization or '—' }}</td>
+          <td><span class="badge neutral">{{ d.dept_name or 'Unassigned' }}</span></td>
+          <td>{{ d.phone or '—' }}</td>
+          {% if session.get('role') == 'admin' %}<td>Rs. {{ d.salary }}</td>{% endif %}
+        </tr>
+        {% else %}
+        <tr><td class="empty-state-cell" colspan="{% if session.get('role') == 'admin' %}5{% else %}4{% endif %}">
+          {{ empty_state('stethoscope', 'No doctors found', 'The directory will show doctors when records are available.') }}
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% endblock %}

@@ -1,10 +1,48 @@
 {% extends "base.html" %}
+{% block title %}Dashboard | HMS Care{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">A clear view of today’s hospital operations</p>{% endblock %}
+
 {% block content %}
-<h2>Dashboard</h2>
-<div class="cards">
-  <div class="card"><h3>{{ patients }}</h3><p>Total Patients</p></div>
-  <div class="card"><h3>{{ doctors }}</h3><p>Total Doctors</p></div>
-  <div class="card"><h3>{{ appts }}</h3><p>Appointments</p></div>
-  <div class="card alert"><h3>{{ low }}</h3><p>Low Stock Items</p></div>
+<div class="stat-grid">
+  {{ stat_card('users', patients, 'Total patients', href='/patients') }}
+  {{ stat_card('stethoscope', doctors, 'Medical team', href='/doctors') }}
+  {{ stat_card('calendar-days', appts, 'Appointments', href='/appointments') }}
+  {{ stat_card('package', low, 'Low-stock items', href='/inventory', tone='warning' if low > 0 else 'success') }}
 </div>
+
+<section class="panel section-card">
+  <div class="section-head">
+    <div>
+      <h2>Quick access</h2>
+      <p class="inline-note">Open the tools relevant to your role</p>
+    </div>
+  </div>
+  <div class="card-grid">
+    {% if session.get('role') in ['admin', 'doctor', 'receptionist'] %}
+    <a href="/patients" class="prescription-card">
+      <div class="stat-card__icon"><i data-lucide="users"></i></div>
+      <h3>Patient records</h3><p class="inline-note">Browse and manage patient information</p>
+    </a>
+    {% endif %}
+    {% if session.get('role') in ['admin', 'doctor', 'receptionist'] %}
+    <a href="/appointments" class="prescription-card">
+      <div class="stat-card__icon"><i data-lucide="calendar-days"></i></div>
+      <h3>Appointments</h3><p class="inline-note">Review schedules and visits</p>
+    </a>
+    {% endif %}
+    {% if session.get('role') in ['admin', 'pharmacist'] %}
+    <a href="/pharmacy" class="prescription-card">
+      <div class="stat-card__icon"><i data-lucide="pill"></i></div>
+      <h3>Pharmacy</h3><p class="inline-note">Review pending prescriptions</p>
+    </a>
+    {% endif %}
+    {% if session.get('role') in ['admin', 'doctor', 'labtech'] %}
+    <a href="/lab" class="prescription-card">
+      <div class="stat-card__icon"><i data-lucide="flask-conical"></i></div>
+      <h3>Laboratory</h3><p class="inline-note">Review tests and results</p>
+    </a>
+    {% endif %}
+  </div>
+</section>
 {% endblock %}

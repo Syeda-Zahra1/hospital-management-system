@@ -1,50 +1,358 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Hospital Management System</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <title>{% block title %}Hospital Management System{% endblock %}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-<body>
-<header>
-  <h1>🏥 Hospital Management System</h1>
-<nav>
-    {% if session.get('role') == 'patient' %}
-        <a href="/patient/dashboard">My Dashboard</a>
-        <a href="/logout" class="logout-btn">Logout</a>
-    {% elif session.get('user_id') %}
-        <a href="/">Dashboard</a>
-        <a href="/patients">Patients</a>
-        <a href="/rooms">Rooms</a>
-        <a href="/doctors">Doctors</a>
-        <a href="/appointments">Appointments</a>
-        <a href="/inventory">Inventory</a>
-        <a href="/pharmacy">Pharmacy</a>
-        <a href="/lab">Laboratory</a>
-        <a href="/billing">Billing</a>
-        <a href="/staff">Staff</a>
-        {% if session.get('role') == 'admin' %}
-        <a href="/admin/dashboard" style="background: rgba(255,255,255,0.3); font-weight: bold;">Admin Analytics</a>
-        <a href="/admin/logs">Audit Logs</a>
+<body class="app-body">
+  {% macro sidebar_link(path, icon, label, active=False) %}
+  <a href="{{ path }}" class="nav-link{% if active %} active{% endif %}" aria-label="{{ label }}" title="{{ label }}">
+    <span class="nav-icon"><i data-lucide="{{ icon }}"></i></span>
+    <span class="nav-label">{{ label }}</span>
+  </a>
+  {% endmacro %}
+
+  {% macro stat_card(icon, number, label, trend=None, href=None, tone='default') %}
+  <div class="stat-card {{ tone }}">
+    <div class="stat-card__icon">
+      <i data-lucide="{{ icon }}"></i>
+    </div>
+    <div class="stat-card__content">
+      <div class="stat-card__value">{{ number }}</div>
+      <div class="stat-card__label">{{ label }}</div>
+      {% if trend %}
+      <div class="stat-card__trend{% if trend.type %} {{ trend.type }}{% endif %}">{{ trend.text }}</div>
+      {% endif %}
+    </div>
+    {% if href %}
+    <a href="{{ href }}" class="stat-card__link">
+      View all <i data-lucide="arrow-right"></i>
+    </a>
     {% endif %}
-        <span class="user-info">👤 {{ session.full_name }} ({{ session.role }})</span>
-        <a href="/logout" class="logout-btn">Logout</a>
+  </div>
+  {% endmacro %}
+
+  {% macro badge(text, tone='neutral') %}
+  <span class="badge {{ tone }}">{{ text }}</span>
+  {% endmacro %}
+
+  {% macro button_variant(label, href=None, variant='primary', icon='arrow-right', submit=False, extra_classes='') %}
+    {% if href %}
+    <a href="{{ href }}" class="btn btn-{{ variant }} {{ extra_classes }}">
+      {% if icon %}<i data-lucide="{{ icon }}"></i>{% endif %}
+      <span>{{ label }}</span>
+    </a>
     {% else %}
-        <a href="/login">Login</a>
-        <a href="/register">Patient Registration</a>
+    <button type="{% if submit %}submit{% else %}button{% endif %}" class="btn btn-{{ variant }} {{ extra_classes }}">
+      {% if icon %}<i data-lucide="{{ icon }}"></i>{% endif %}
+      <span>{{ label }}</span>
+    </button>
     {% endif %}
-</nav>
+  {% endmacro %}
 
+  {% macro empty_state(icon, title, message, action_label=None, action_href=None) %}
+  <div class="empty-state">
+    <div class="empty-state__icon"><i data-lucide="{{ icon }}"></i></div>
+    <h3>{{ title }}</h3>
+    <p>{{ message }}</p>
+    {% if action_label and action_href %}
+    <a href="{{ action_href }}" class="btn btn-primary">
+      <i data-lucide="plus"></i>
+      <span>{{ action_label }}</span>
+    </a>
+    {% endif %}
+  </div>
+  {% endmacro %}
 
-</header>
-<main>
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for cat, msg in messages %}
-      <div class="flash {{cat}}">{{ msg }}</div>
-    {% endfor %}
-  {% endwith %}
-  {% block content %}{% endblock %}
-</main>
-<footer><p>© 2025 Hospital Management System | University Project</p></footer>
+  {% if session.get('user_id') %}
+  <div class="app-shell">
+    <button class="sidebar-backdrop" type="button" aria-label="Close navigation" data-sidebar-close></button>
+    <aside class="sidebar">
+      <div class="sidebar__brand">
+        <div class="brand-mark"><i data-lucide="heart-pulse"></i></div>
+        <div>
+          <div class="brand-name">HMS</div>
+          <div class="brand-subtitle">CareHub</div>
+        </div>
+      </div>
+
+      {% set current_path = request.path %}
+      {% set current_role = session.get('role') %}
+
+      {% if current_role == 'admin' %}
+        {% set nav_items = [
+          ('/', 'layout-grid', 'Dashboard'),
+          ('/patients', 'users', 'Patients'),
+          ('/rooms', 'bed-double', 'Rooms'),
+          ('/doctors', 'stethoscope', 'Doctors'),
+          ('/appointments', 'calendar-days', 'Appointments'),
+          ('/medical_records', 'file-text', 'Medical Records'),
+          ('/inventory', 'package', 'Inventory'),
+          ('/pharmacy', 'pill', 'Pharmacy'),
+          ('/lab', 'flask-conical', 'Laboratory'),
+          ('/billing', 'receipt', 'Billing'),
+          ('/staff', 'briefcase-business', 'Staff'),
+          ('/admin/dashboard', 'bar-chart-3', 'Admin Analytics'),
+          ('/admin/logs', 'clipboard-list', 'Audit Logs')
+        ] %}
+      {% elif current_role == 'doctor' %}
+        {% set nav_items = [
+          ('/', 'layout-grid', 'Dashboard'),
+          ('/patients', 'users', 'Patients'),
+          ('/doctors', 'stethoscope', 'Doctors'),
+          ('/appointments', 'calendar-days', 'Appointments'),
+          ('/medical_records', 'file-text', 'Medical Records'),
+          ('/lab', 'flask-conical', 'Laboratory')
+        ] %}
+      {% elif current_role == 'receptionist' %}
+        {% set nav_items = [
+          ('/', 'layout-grid', 'Dashboard'),
+          ('/patients', 'users', 'Patients'),
+          ('/rooms', 'bed-double', 'Rooms'),
+          ('/doctors', 'stethoscope', 'Doctors'),
+          ('/appointments', 'calendar-days', 'Appointments'),
+          ('/billing', 'receipt', 'Billing')
+        ] %}
+      {% elif current_role == 'pharmacist' %}
+        {% set nav_items = [
+          ('/', 'layout-grid', 'Dashboard'),
+          ('/doctors', 'stethoscope', 'Doctors'),
+          ('/inventory', 'package', 'Inventory'),
+          ('/pharmacy', 'pill', 'Pharmacy')
+        ] %}
+      {% elif current_role == 'labtech' %}
+        {% set nav_items = [
+          ('/', 'layout-grid', 'Dashboard'),
+          ('/doctors', 'stethoscope', 'Doctors'),
+          ('/lab', 'flask-conical', 'Laboratory')
+        ] %}
+      {% elif current_role == 'patient' %}
+        {% set nav_items = [
+          ('/patient/dashboard', 'layout-grid', 'My Dashboard'),
+          ('/doctors', 'stethoscope', 'Doctors')
+        ] %}
+      {% endif %}
+
+      <nav class="sidebar__nav" aria-label="Main navigation">
+        {% for item in nav_items %}
+          {% set active = current_path == item[0] %}
+          {{ sidebar_link(item[0], item[1], item[2], active) }}
+        {% endfor %}
+      </nav>
+
+      <div class="sidebar__footer">
+        <div class="user-chip">
+          <div class="user-chip__avatar">{{ session.get('full_name', 'U')[:1] | upper }}</div>
+          <div class="user-chip__meta">
+            <span class="user-chip__name">{{ session.get('full_name', 'User') }}</span>
+            <span class="user-chip__role">{{ session.get('role', 'User') | title }}</span>
+          </div>
+        </div>
+        <a href="/logout" class="logout-button" aria-label="Logout">
+          <i data-lucide="log-out"></i>
+        </a>
+      </div>
+    </aside>
+
+    <main class="main-panel">
+      {% if session.get('user_id') %}
+      <header class="topbar">
+        <div class="topbar__title-wrap">
+          <button class="mobile-menu-button" type="button" aria-label="Open navigation" aria-expanded="false" data-sidebar-open>
+            <span class="hamburger-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+          </button>
+          <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+          {% block page_subtitle %}<p class="page-subtitle">Overview</p>{% endblock %}
+        </div>
+        <div class="topbar__actions">
+          <button class="icon-button" aria-label="Notifications">
+            <i data-lucide="bell"></i>
+          </button>
+          <div class="topbar__user-menu">
+            <div class="menu-avatar">{{ session.get('full_name', 'U')[:1] | upper }}</div>
+            <div>
+              <strong>{{ session.get('full_name', 'User') }}</strong>
+              <small>{{ session.get('role', 'User') | title }}</small>
+            </div>
+            <i data-lucide="chevron-down"></i>
+          </div>
+        </div>
+      </header>
+      {% endif %}
+
+      <div class="content-panel">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% for cat, msg in messages %}
+            <div class="flash flash-{{ cat if cat in ['success', 'error'] else 'info' }}" role="status" data-toast>
+              <span>{{ msg }}</span>
+              <button type="button" class="toast-close" aria-label="Dismiss notification" data-toast-close>&times;</button>
+            </div>
+          {% endfor %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+      </div>
+    </main>
+  </div>
+  {% else %}
+  {% block auth_content %}{% endblock %}
+  {% endif %}
+
+  <div class="confirm-backdrop" hidden data-confirm-dialog>
+    <section class="confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+      <div class="confirm-dialog__icon"><i data-lucide="triangle-alert"></i></div>
+      <h2 id="confirm-title">Please confirm</h2>
+      <p id="confirm-message">Are you sure you want to continue?</p>
+      <div class="confirm-dialog__actions">
+        <button type="button" class="btn btn-secondary" data-confirm-cancel>Cancel</button>
+        <button type="button" class="btn btn-danger" data-confirm-accept>Continue</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.lucide) {
+        window.lucide.createIcons();
+      }
+
+      const sidebar = document.querySelector('.sidebar');
+      const menuButton = document.querySelector('[data-sidebar-open]');
+      const closeButton = document.querySelector('[data-sidebar-close]');
+      const closeSidebar = function () {
+        document.body.classList.remove('sidebar-open');
+        if (menuButton) {
+          menuButton.setAttribute('aria-expanded', 'false');
+          menuButton.setAttribute('aria-label', 'Open navigation');
+        }
+      };
+
+      if (menuButton && sidebar) {
+        menuButton.addEventListener('click', function () {
+          const isOpen = document.body.classList.toggle('sidebar-open');
+          menuButton.setAttribute('aria-expanded', String(isOpen));
+          menuButton.setAttribute('aria-label', isOpen ? 'Close navigation' : 'Open navigation');
+        });
+        if (closeButton) closeButton.addEventListener('click', closeSidebar);
+        sidebar.querySelectorAll('a').forEach(function (link) {
+          link.addEventListener('click', closeSidebar);
+        });
+        document.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape') closeSidebar();
+        });
+      }
+
+      document.querySelectorAll('[data-toast]').forEach(function (toast) {
+        const dismiss = function () {
+          toast.classList.add('toast-dismiss');
+          window.setTimeout(function () { toast.remove(); }, 220);
+        };
+        const close = toast.querySelector('[data-toast-close]');
+        if (close) close.addEventListener('click', dismiss);
+        window.setTimeout(dismiss, 4000);
+      });
+
+      const dialog = document.querySelector('[data-confirm-dialog]');
+      const message = document.getElementById('confirm-message');
+      let pendingForm = null;
+      let previousFocus = null;
+
+      document.addEventListener('submit', function (event) {
+        const form = event.target;
+        if (form instanceof HTMLFormElement && form.dataset.confirm && !form.dataset.confirmed) {
+          event.preventDefault();
+          pendingForm = form;
+          previousFocus = document.activeElement;
+          message.textContent = form.dataset.confirm;
+          dialog.hidden = false;
+          dialog.querySelector('[data-confirm-cancel]').focus();
+        }
+      });
+
+      if (dialog) {
+        const cancel = function () {
+          dialog.hidden = true;
+          pendingForm = null;
+          if (previousFocus) previousFocus.focus();
+        };
+        dialog.querySelector('[data-confirm-cancel]').addEventListener('click', cancel);
+        dialog.addEventListener('click', function (event) {
+          if (event.target === dialog) cancel();
+        });
+        dialog.querySelector('[data-confirm-accept]').addEventListener('click', function () {
+          if (pendingForm) {
+            pendingForm.dataset.confirmed = 'true';
+            pendingForm.requestSubmit();
+          }
+          dialog.hidden = true;
+        });
+        document.addEventListener('keydown', function (event) {
+          if (event.key === 'Escape' && !dialog.hidden) cancel();
+        });
+      }
+
+      document.querySelectorAll('form[data-loading]').forEach(function (form) {
+        form.addEventListener('submit', function () {
+          const submit = form.querySelector('button[type="submit"]');
+          if (submit && form.reportValidity()) {
+            submit.disabled = true;
+            const spinner = submit.querySelector('.spinner');
+            if (spinner) spinner.hidden = false;
+            else submit.insertAdjacentHTML('afterbegin', '<span class="spinner" aria-hidden="true"></span>');
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-table-search]').forEach(function (input) {
+        input.addEventListener('input', function () {
+          const table = document.querySelector(input.dataset.tableSearch);
+          if (!table) return;
+          const query = input.value.toLowerCase();
+          table.querySelectorAll('tbody tr').forEach(function (row) {
+            row.hidden = !row.textContent.toLowerCase().includes(query);
+          });
+        });
+      });
+
+      document.querySelectorAll('[data-modal-open]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          const modal = document.querySelector(button.dataset.modalOpen);
+          if (modal) {
+            modal.hidden = false;
+            const firstField = modal.querySelector('input, select, textarea, button');
+            if (firstField) firstField.focus();
+          }
+        });
+      });
+
+      document.querySelectorAll('[data-modal-close]').forEach(function (button) {
+        button.addEventListener('click', function () {
+          const modal = button.closest('[data-modal]');
+          if (modal) modal.hidden = true;
+        });
+      });
+
+      document.querySelectorAll('[data-modal]').forEach(function (modal) {
+        modal.addEventListener('click', function (event) {
+          if (event.target === modal) modal.hidden = true;
+        });
+      });
+
+      document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+          document.querySelectorAll('[data-modal]:not([hidden])').forEach(function (modal) {
+            modal.hidden = true;
+          });
+        }
+      });
+    });
+  </script>
+  {% include "_chatbot_widget.html" %}
 </body>
 </html>

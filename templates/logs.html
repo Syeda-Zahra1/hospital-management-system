@@ -1,24 +1,36 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>📝 Audit Logs (Activity Trail)</h2>
-<p style="color: #666; margin-bottom: 20px;">Track who did what in the system.</p>
+{% block title %}Audit logs | HMS Care{% endblock %}
+{% block page_title %}Audit trail{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">A record of recent activity in the system</p>{% endblock %}
 
-<table>
-  <tr>
-    <th>Log ID</th>
-    <th>Timestamp</th>
-    <th>Username</th>
-    <th>Action Performed</th>
-  </tr>
-  {% for log in logs %}
-  <tr>
-    <td>#{{ log.log_id }}</td>
-    <td>{{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if log.timestamp else '' }}</td>
-    <td><strong>{{ log.username }}</strong></td>
-    <td>{{ log.action }}</td>
-  </tr>
+{% block content %}
+<section class="panel section-card">
+  <div class="section-head">
+    <div><h2>Recent activity</h2><p class="inline-note">Showing the latest {{ logs|length }} audit events</p></div>
+    <span class="badge neutral"><i data-lucide="shield-check"></i> Audit log</span>
+  </div>
+  {% if logs %}
+  <div class="timeline">
+    {% for log in logs %}
+    {% set action_text = (log.action or '')|lower %}
+    {% if 'delete' in action_text %}{% set action_tone = 'delete' %}
+    {% elif 'update' in action_text or 'updated' in action_text %}{% set action_tone = 'update' %}
+    {% else %}{% set action_tone = 'add' %}{% endif %}
+    <article class="timeline-item">
+      <span class="timeline-dot {{ action_tone }}"></span>
+      <div class="timeline-content">
+        <div class="timeline-meta">
+          <span>{{ log.timestamp.strftime('%b %d, %Y · %H:%M') if log.timestamp else 'Time unavailable' }}</span>
+          <span>Log #{{ log.log_id }}</span>
+        </div>
+        <strong>{{ log.username or 'System user' }}</strong>
+        <p>{{ log.action }}</p>
+      </div>
+    </article>
+    {% endfor %}
+  </div>
   {% else %}
-  <tr><td colspan="4" style="text-align: center;">No activity logs found.</td></tr>
-  {% endfor %}
-</table>
+    {{ empty_state('clipboard-list', 'No audit activity', 'System activity will be recorded here as users work.') }}
+  {% endif %}
+</section>
 {% endblock %}

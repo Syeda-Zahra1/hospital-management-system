@@ -1,47 +1,91 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<title>Login — Hospital Management System</title>
-<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
+{% extends "base.html" %}
+{% block title %}Sign in | HMS Care{% endblock %}
 
+{% block auth_content %}
+<div class="auth-page auth-login-page">
+  <div class="auth-shell">
+    <section class="auth-visual">
+      <div class="auth-visual__content">
+        <div class="auth-brand">
+          <div class="auth-brand__mark"><i data-lucide="heart-pulse"></i></div>
+          <span>HMS Care</span>
+        </div>
+        <h1>Care, managed.<br>Every patient, every record.</h1>
+        <p>Coordinate visits, prescriptions, lab results, and billing in one secure clinical workspace designed for modern care teams.</p>
+        <img class="auth-illustration" src="{{ url_for('static', filename='clinic-care.svg') }}" alt="A clinician supporting a patient in a welcoming clinic">
 
-<body class="login-body">
+        <div class="auth-visual__panel">
+          <div class="auth-stat"><strong><i data-lucide="shield-check"></i></strong><span>Role-based access</span></div>
+          <div class="auth-stat"><strong><i data-lucide="heart-pulse"></i></strong><span>Care team tools</span></div>
+          <div class="auth-stat"><strong><i data-lucide="user-round"></i></strong><span>Patient portal</span></div>
+        </div>
+      </div>
+    </section>
 
+    <section class="auth-card">
+      <h2>Welcome back</h2>
+      <p class="auth-card__subtitle">Sign in to your hospital dashboard</p>
 
-<div class="login-box">
-  <h1>🏥 Hospital Management</h1>
-  <h2>Login</h2>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="flash flash-{{ cat if cat else 'info' }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
 
-  {% with messages = get_flashed_messages(with_categories=true) %}
-    {% for cat, msg in messages %}
-      <div class="flash {{cat}}">{{ msg }}</div>
-    {% endfor %}
-  {% endwith %}
+      <form method="POST" action="/login" class="auth-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
-  <form method="POST" action="/login">
-    <label>Username</label>
-    <input name="username" placeholder="Enter username" required autofocus>
+        <div class="form-field">
+          <i data-lucide="user"></i>
+          <input name="username" type="text" placeholder="Username or email" required autofocus>
+        </div>
 
-    <label>Password</label>
-    <input name="password" type="password" placeholder="Enter password" required>
+        <div class="form-field">
+          <i data-lucide="lock"></i>
+          <input name="password" type="password" placeholder="Password" required>
+        </div>
 
-    <button type="submit">🔐 Login</button>
-  </form>
+        <button type="submit" class="btn btn-primary" style="width:100%;">
+          <i data-lucide="log-in"></i>
+          <span>Login</span>
+        </button>
+      </form>
 
-  <p class="hint">
-    <strong>Demo accounts:</strong><br>
-    Admin: admin / admin123<br>
-    Doctor: dr.ahmed / doc123<br>
-    Receptionist: reception1 / rec123<br>
-    Pharmacist: pharmacy1 / pharm123
-  </p>
+      <div class="auth-links auth-links--split">
+        <span>New patient? <a href="/register">Register here</a></span>
+        <button type="button" class="text-link" data-modal-open="#passwordHelpModal">Forgot password?</button>
+      </div>
 
-    <p style="text-align:center; margin-top:20px; font-size:14px;">
-      New Patient? <a href="/register" style="color:#0d6efd; font-weight:bold; text-decoration:none;">Register Here</a>
-  </p>
+      <details class="demo-box">
+        <summary>Show demo credentials</summary>
+        <div class="demo-box__content">
+          <strong>Admin:</strong> admin / admin123<br>
+          <strong>Doctor:</strong> dr.ahmed / doc123<br>
+          <strong>Receptionist:</strong> reception1 / rec123<br>
+          <strong>Pharmacist:</strong> pharmacy1 / pharm123
+        </div>
+      </details>
+    </section>
+  </div>
 </div>
 
-</body>
-</html>
+<div class="modal-backdrop" id="passwordHelpModal" data-modal hidden>
+  <section class="panel modal-card password-help-card" role="dialog" aria-modal="true" aria-labelledby="password-help-title">
+    <div class="modal-card__head">
+      <div>
+        <div class="password-help-icon"><i data-lucide="key-round"></i></div>
+        <h2 id="password-help-title">Need help signing in?</h2>
+        <p class="inline-note">Password recovery is handled by your hospital administrator.</p>
+      </div>
+      <button type="button" class="modal-close" aria-label="Close password help" data-modal-close>&times;</button>
+    </div>
+    <div class="password-help-message">
+      <p>Contact your hospital system administrator and ask them to reset your account after verifying your identity.</p>
+      <p>For your security, never share your current password or send it by email or message.</p>
+    </div>
+    <div class="confirm-dialog__actions">
+      <button type="button" class="btn btn-primary" data-modal-close><i data-lucide="check"></i><span>Got it</span></button>
+    </div>
+  </section>
+</div>
+{% endblock %}

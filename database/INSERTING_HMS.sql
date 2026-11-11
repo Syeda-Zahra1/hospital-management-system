@@ -77,3 +77,5 @@ INSERT INTO staff (first_name, last_name, role, phone, email, dept_id, salary) V
 ('Sadia', 'Yousaf', 'Lab Technician', '0321-3333333', 'sadia@hospital.com', 2, 55000),
 ('Imran', 'Baig', 'Ward Boy', '0321-4444444', 'imran@hospital.com', 3, 35000),
 ('Rabia', 'Anwar', 'Pharmacist', '0321-5555555', 'rabia@hospital.com', 1, 70000);
+
+

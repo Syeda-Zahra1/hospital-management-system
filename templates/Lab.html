@@ -1,73 +1,76 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>🔬 Laboratory & Diagnostics</h2>
+{% block title %}Laboratory | HMS Care{% endblock %}
+{% block page_title %}Laboratory{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Coordinate test orders and report results</p>{% endblock %}
 
-<!-- Doctor's Order Form (Only visible to Doctors/Admin) -->
+{% block content %}
 {% if session.get('role') in ['admin', 'doctor'] %}
-<div class="form-box" style="margin-bottom: 30px; border-left: 5px solid #0d6efd;">
-  <h3 style="width: 100%; margin-bottom: 10px;">Order a New Lab Test</h3>
-  <form method="POST" action="/lab/order" style="display: flex; gap: 10px; width: 100%; flex-wrap: wrap;">
-    <select name="patient_id" required style="flex: 1; padding: 8px;">
-      <option value="">Select Patient...</option>
-      {% for p in patients %}
-        <option value="{{ p.patient_id }}">{{ p.first_name }} {{ p.last_name }}</option>
-      {% endfor %}
-    </select>
-    
-    <select name="doctor_id" required style="flex: 1; padding: 8px;">
-      <option value="">Select Doctor...</option>
-      {% for d in doctors %}
-        <option value="{{ d.doctor_id }}">Dr. {{ d.first_name }} {{ d.last_name }}</option>
-      {% endfor %}
-    </select>
-    
-    <input name="test_name" placeholder="Test Name (e.g., CBC, X-Ray)" required style="flex: 2; padding: 8px;">
-    <button type="submit" style="padding: 8px 20px; background: #0d6efd; color: white; border: none; border-radius: 5px; cursor: pointer;">Order Test</button>
+<details class="form-card form-disclosure">
+  <summary><span><i data-lucide="flask-conical"></i> Order a lab test</span><i data-lucide="chevron-down"></i></summary>
+  <form method="POST" action="/lab/order" class="form-grid" data-loading>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+      <label for="lab-patient">Patient</label>
+      <select id="lab-patient" name="patient_id" required>
+        <option value="">Select a patient</option>
+        {% for p in patients %}<option value="{{ p.patient_id }}">{{ p.first_name }} {{ p.last_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="lab-doctor">Ordering doctor</label>
+      <select id="lab-doctor" name="doctor_id" required>
+        <option value="">Select a doctor</option>
+        {% for d in doctors %}<option value="{{ d.doctor_id }}">Dr. {{ d.first_name }} {{ d.last_name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="lab-test-name">Test name</label>
+      <input id="lab-test-name" name="test_name" placeholder="e.g., CBC, X-Ray" required>
+    </div>
+    <div class="form-group" style="justify-content:flex-end">
+      <button type="submit" class="btn btn-primary"><i data-lucide="plus"></i><span>Order test</span></button>
+    </div>
   </form>
-</div>
+</details>
 {% endif %}
 
-<!-- Lab Tests Table -->
-<table>
-  <tr>
-    <th>Date</th>
-    <th>Patient</th>
-    <th>Test Name</th>
-    <th>Ordered By</th>
-    <th>Status</th>
-    <th>Result / Action</th>
-  </tr>
-  {% for t in tests %}
-  <tr>
-    <td>{{ t.test_date }}</td>
-    <td><strong>{{ t.patient_name }}</strong></td>
-    <td>{{ t.test_name }}</td>
-    <td>Dr. {{ t.doctor_name }}</td>
-    <td>
-      {% if t.status == 'Pending' %}
-        <span style="color: #dc3545; font-weight: bold;">⏳ Pending</span>
-      {% else %}
-        <span style="color: #198754; font-weight: bold;">✅ Completed</span>
-      {% endif %}
-    </td>
-    <td>
-      {% if t.status == 'Pending' and session.get('role') in ['admin', 'labtech'] %}
-        <!-- Lab Tech Upload Form -->
-        <form method="POST" action="/lab/submit/{{ t.test_id }}" style="display: flex; gap: 5px;">
-          <input name="result" placeholder="Enter result..." required style="padding: 5px; flex: 1;">
-          <button type="submit" style="padding: 5px 10px; background: #198754; color: white; border: none; border-radius: 4px; cursor: pointer;">Submit</button>
-        </form>
-      {% elif t.status == 'Completed' %}
-        <span style="color: #333; font-style: italic;">{{ t.result }}</span>
-      {% else %}
-        <span style="color: #888;">Awaiting Lab Tech</span>
-      {% endif %}
-    </td>
-  </tr>
-  {% else %}
-  <tr>
-    <td colspan="6" style="text-align: center; color: #888;">No lab tests found.</td>
-  </tr>
-  {% endfor %}
-</table>
+<div class="toolbar">
+  <p class="inline-note">{{ tests|length }} lab tests</p>
+  <label class="search-box"><i data-lucide="search"></i><input type="search" data-table-search="#labTable" placeholder="Search tests"></label>
+</div>
+
+<section class="table-card">
+  <div class="table-wrap">
+    <table id="labTable">
+      <thead><tr><th>Date</th><th>Patient</th><th>Test</th><th>Ordered by</th><th>Status</th><th>Result / action</th></tr></thead>
+      <tbody>
+        {% for t in tests %}
+        <tr>
+          <td>{{ t.test_date }}</td>
+          <td><strong>{{ t.patient_name }}</strong></td>
+          <td>{{ t.test_name }}</td>
+          <td>{{ ('Dr. ' ~ t.doctor_name) if t.doctor_name else '—' }}</td>
+          <td>{% if t.status == 'Pending' %}{{ badge('Pending', 'warning') }}{% else %}{{ badge('Completed', 'success') }}{% endif %}</td>
+          <td>
+            {% if t.status == 'Pending' and session.get('role') in ['admin', 'labtech'] %}
+            <form method="POST" action="/lab/submit/{{ t.test_id }}" class="table-action" data-loading>
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <label class="sr-only" for="lab-result-{{ t.test_id }}">Result for {{ t.test_name }}</label>
+              <input id="lab-result-{{ t.test_id }}" name="result" placeholder="Enter result" required>
+              <button type="submit" class="btn btn-primary"><i data-lucide="send"></i><span>Submit</span></button>
+            </form>
+            {% elif t.status == 'Completed' %}
+            <span>{{ t.result or 'Result submitted' }}</span>
+            {% else %}
+            <span class="inline-note">Awaiting lab result</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td class="empty-state-cell" colspan="6">{{ empty_state('flask-conical', 'No lab tests', 'New test orders will appear here.') }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% endblock %}

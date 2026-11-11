@@ -1,25 +1,77 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>Appointments</h2>
-<form method="POST" action="/appointments/add" class="form-box">
-  <input name="patient_id" placeholder="Patient ID" type="number" required>
-  <input name="doctor_id" placeholder="Doctor ID" type="number" required>
-  <input name="appointment_date" type="datetime-local" required>
-  <input name="reason" placeholder="Reason">
-  <button type="submit">Book</button>
-</form>
+{% block title %}Appointments | HMS Care{% endblock %}
+{% block page_title %}Appointments{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Review and schedule patient visits</p>{% endblock %}
 
-<table>
-  <tr><th>ID</th><th>Patient</th><th>Doctor</th><th>Date</th><th>Status</th><th>Reason</th></tr>
-  {% for a in appointments %}
-  <tr>
-    <td>{{ a.appointment_id }}</td>
-    <td>{{ a.patient_name }}</td>
-    <td>{{ a.doctor_name }}</td>
-    <td>{{ a.appointment_date }}</td>
-    <td>{{ a.status }}</td>
-    <td>{{ a.reason }}</td>
-  </tr>
-  {% endfor %}
-</table>
+{% block content %}
+{% if session.get('role') in ['admin', 'receptionist'] %}
+<details class="form-card form-disclosure">
+  <summary>
+    <span><i data-lucide="calendar-plus"></i> Book an appointment</span>
+    <i data-lucide="chevron-down"></i>
+  </summary>
+  <form method="POST" action="/appointments/add" class="form-grid" data-loading>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group">
+      <label for="appointment-patient-id">Patient ID</label>
+      <input id="appointment-patient-id" name="patient_id" placeholder="Enter patient ID" type="number" min="1" required>
+    </div>
+    <div class="form-group">
+      <label for="appointment-doctor-id">Doctor ID</label>
+      <input id="appointment-doctor-id" name="doctor_id" placeholder="Enter doctor ID" type="number" min="1" required>
+    </div>
+    <div class="form-group">
+      <label for="appointment-date">Date and time</label>
+      <input id="appointment-date" name="appointment_date" type="datetime-local" required>
+    </div>
+    <div class="form-group">
+      <label for="appointment-reason">Reason for visit</label>
+      <input id="appointment-reason" name="reason" placeholder="Brief reason for the visit">
+    </div>
+    <div class="form-group full">
+      <button type="submit" class="btn btn-primary"><i data-lucide="calendar-check"></i><span>Book appointment</span></button>
+    </div>
+  </form>
+</details>
+{% endif %}
+
+<div class="toolbar">
+  <p class="inline-note">{{ appointments|length }} appointments</p>
+  <label class="search-box">
+    <i data-lucide="search"></i>
+    <input type="search" id="appointmentSearch" data-table-search="#appointmentTable" placeholder="Search appointments">
+  </label>
+</div>
+
+<section class="table-card">
+  <div class="table-wrap">
+    <table id="appointmentTable">
+      <thead>
+        <tr><th>Visit</th><th>Patient</th><th>Doctor</th><th>Date and time</th><th>Status</th><th>Reason</th></tr>
+      </thead>
+      <tbody>
+        {% for a in appointments %}
+        <tr>
+          <td>#{{ a.appointment_id }}</td>
+          <td><strong>{{ a.patient_name }}</strong></td>
+          <td>Dr. {{ a.doctor_name }}</td>
+          <td>{{ a.appointment_date }}</td>
+          <td>
+            {% set status = (a.status or 'Scheduled')|lower %}
+            {% if status == 'completed' %}{{ badge(a.status, 'success') }}
+            {% elif status == 'cancelled' %}{{ badge(a.status, 'danger') }}
+            {% elif status in ['no-show', 'no show'] %}{{ badge(a.status, 'neutral') }}
+            {% else %}{{ badge(a.status or 'Scheduled', 'warning') }}{% endif %}
+          </td>
+          <td>{{ a.reason or '—' }}</td>
+        </tr>
+        {% else %}
+        <tr><td class="empty-state-cell" colspan="6">
+          {{ empty_state('calendar-days', 'No appointments yet', 'New bookings will appear here.') }}
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
 {% endblock %}

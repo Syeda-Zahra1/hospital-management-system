@@ -1,62 +1,65 @@
 {% extends "base.html" %}
-{% block content %}
-<h2>🛏️ Room & Bed Management</h2>
+{% block title %}Rooms | HMS Care{% endblock %}
+{% block page_title %}Rooms and beds{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">View room availability and manage admissions</p>{% endblock %}
 
-<div class="cards" style="margin-bottom: 30px;">
-  <div class="card" style="border-left-color: #198754;">
-    <h3>{{ rooms|selectattr('status', 'equalto', 'Available')|list|length }}</h3>
-    <p>Available Rooms</p>
+{% block content %}
+{% set available_count = rooms|selectattr('status', 'equalto', 'Available')|list|length %}
+{% set occupied_count = rooms|selectattr('status', 'equalto', 'Occupied')|list|length %}
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="summary-card__icon"><i data-lucide="bed-double"></i></div>
+    <div class="summary-card__label">Available rooms</div>
+    <div class="summary-card__value">{{ available_count }}</div>
   </div>
-  <div class="card" style="border-left-color: #dc3545;">
-    <h3>{{ rooms|selectattr('status', 'equalto', 'Occupied')|list|length }}</h3>
-    <p>Occupied Rooms</p>
+  <div class="summary-card">
+    <div class="summary-card__icon" style="color:var(--danger)"><i data-lucide="bed"></i></div>
+    <div class="summary-card__label">Occupied rooms</div>
+    <div class="summary-card__value">{{ occupied_count }}</div>
   </div>
 </div>
 
-<table>
-  <tr>
-    <th>Room #</th>
-    <th>Type</th>
-    <th>Charges / Day</th>
-    <th>Status</th>
-    <th>Current Patient</th>
-    <th>Action</th>
-  </tr>
+{% if rooms %}
+<div class="card-grid room-grid">
   {% for r in rooms %}
-  <tr>
-    <td><strong>{{ r.room_number }}</strong></td>
-    <td>{{ r.room_type }}</td>
-    <td>Rs. {{ r.charges_per_day }}</td>
-    <td>
-      {% if r.status == 'Available' %}
-        <span style="color: #198754; font-weight: bold;">🟢 Available</span>
-      {% else %}
-        <span style="color: #dc3545; font-weight: bold;">🔴 Occupied</span>
-      {% endif %}
-    </td>
-    <td>{{ r.patient_name if r.patient_name else '-' }}</td>
-    <td>
-      {% if r.status == 'Available' %}
-        <!-- Admit Form -->
-        <form method="POST" action="/rooms/admit/{{ r.room_id }}" style="display: flex; gap: 5px;">
-          <select name="patient_id" required style="padding: 5px;">
-            <option value="">Select Patient...</option>
-            {% for p in patients %}
-              <option value="{{ p.patient_id }}">{{ p.first_name }} {{ p.last_name }}</option>
-            {% endfor %}
+  <article class="room-card{% if r.status != 'Available' %} occupied{% endif %}">
+    <div class="room-card__head">
+      <div>
+        <div class="room-card__number">Room {{ r.room_number }}</div>
+        <div class="room-card__type">{{ r.room_type }}</div>
+      </div>
+      {% if r.status == 'Available' %}{{ badge('Available', 'success') }}
+      {% else %}{{ badge('Occupied', 'danger') }}{% endif %}
+    </div>
+    <div class="room-card__footer">
+      <span class="inline-note">Daily charge</span>
+      <strong>Rs. {{ r.charges_per_day }}</strong>
+    </div>
+    {% if r.status == 'Available' %}
+      <form method="POST" action="/rooms/admit/{{ r.room_id }}" data-loading>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+          <label for="room-patient-{{ r.room_id }}">Admit patient</label>
+          <select id="room-patient-{{ r.room_id }}" name="patient_id" required>
+            <option value="">Select an available patient</option>
+            {% for p in patients %}<option value="{{ p.patient_id }}">{{ p.first_name }} {{ p.last_name }}</option>{% endfor %}
           </select>
-          <button type="submit" style="padding: 5px 10px; background: #0d6efd; color: white; border: none; border-radius: 4px; cursor: pointer;">Admit</button>
-        </form>
-      {% else %}
-        <!-- Discharge Button -->
-        <a href="/rooms/discharge/{{ r.room_id }}" 
-           style="padding: 5px 10px; background: #dc3545; color: white; border-radius: 4px; text-decoration: none;"
-           onclick="return confirm('Discharge patient and free this room?')">
-           Discharge
-        </a>
-      {% endif %}
-    </td>
-  </tr>
+        </div>
+        <button type="submit" class="btn btn-primary" style="margin-top:14px"><i data-lucide="user-plus"></i><span>Admit patient</span></button>
+      </form>
+    {% else %}
+      <div class="room-card__patient"><i data-lucide="user-round"></i> {{ r.patient_name or 'Patient assigned' }}</div>
+      <form method="POST" action="/rooms/discharge/{{ r.room_id }}"
+            data-confirm="Discharge the patient from Room {{ r.room_number }} and mark the room available?"
+            data-loading>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger"><i data-lucide="log-out"></i><span>Discharge</span></button>
+      </form>
+    {% endif %}
+  </article>
   {% endfor %}
-</table>
+</div>
+{% else %}
+<div class="panel">{{ empty_state('bed-double', 'No rooms available', 'Room records will appear here when configured.') }}</div>
+{% endif %}
 {% endblock %}

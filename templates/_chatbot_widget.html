@@ -1,0 +1,169 @@
+{% if session.get('role') in ['admin', 'receptionist'] and config.get('CHATBOT_ENABLED') %}
+<style>
+  #hms-help-widget,
+  #hms-help-widget * { box-sizing: border-box; }
+  #hms-help-widget { position: fixed; right: 24px; bottom: 24px; z-index: 120; font: 14px/1.5 Inter, Arial, sans-serif; color: #0f172a; }
+  #hms-chat-toggle { width: 58px; height: 58px; border: 0; border-radius: 50%; background: #0f766e; color: #fff; box-shadow: 0 8px 26px rgba(15, 23, 42, .24); cursor: pointer; display: grid; place-items: center; }
+  #hms-chat-toggle:hover { background: #0d5b54; transform: translateY(-2px); }
+  #hms-chat-toggle:focus-visible, #hms-chat-close:focus-visible, #hms-chat-send:focus-visible, #hms-chat-input:focus-visible { outline: 3px solid #5eead4; outline-offset: 3px; }
+  #hms-chat-toggle svg { width: 25px; height: 25px; }
+  #hms-chat-window { position: absolute; right: 0; bottom: 72px; width: min(370px, calc(100vw - 32px)); height: min(540px, calc(100vh - 120px)); min-height: 360px; display: flex; flex-direction: column; overflow: hidden; background: #fff; border: 1px solid #dbe5e7; border-radius: 18px; box-shadow: 0 20px 60px rgba(15, 23, 42, .22); }
+  #hms-chat-window[hidden] { display: none; }
+  #hms-chat-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 15px 16px; background: #0f766e; color: #fff; }
+  #hms-chat-title { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  #hms-chat-title-icon { width: 36px; height: 36px; flex: 0 0 36px; display: grid; place-items: center; border-radius: 11px; background: rgba(255,255,255,.16); }
+  #hms-chat-title-icon svg { width: 20px; height: 20px; }
+  #hms-chat-title strong, #hms-chat-title small { display: block; }
+  #hms-chat-title strong { font-size: 14px; }
+  #hms-chat-title small { color: rgba(255,255,255,.82); font-size: 11px; }
+  #hms-chat-close { width: 34px; height: 34px; flex: 0 0 34px; border: 0; border-radius: 9px; background: rgba(255,255,255,.12); color: #fff; font-size: 22px; cursor: pointer; }
+  #hms-chat-disclaimer { padding: 9px 14px; border-bottom: 1px solid #e2e8f0; background: #f8fafc; color: #475569; font-size: 11px; }
+  #hms-chat-messages { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding: 14px; background: #f8fafc; }
+  .hms-chat-message { max-width: 88%; padding: 10px 12px; border-radius: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .hms-chat-message.assistant { align-self: flex-start; background: #fff; border: 1px solid #e2e8f0; color: #1e293b; border-bottom-left-radius: 4px; }
+  .hms-chat-message.user { align-self: flex-end; background: #0f766e; color: #fff; border-bottom-right-radius: 4px; }
+  .hms-chat-message.status { align-self: flex-start; background: #eff6f5; color: #475569; font-size: 12px; }
+  #hms-chat-form { display: flex; align-items: flex-end; gap: 8px; padding: 12px; border-top: 1px solid #e2e8f0; background: #fff; }
+  #hms-chat-input { display: block; min-width: 0; min-height: 42px; max-height: 112px; flex: 1; resize: vertical; padding: 10px 11px; border: 1px solid #cbd5e1; border-radius: 11px; color: #0f172a; background: #fff; font: inherit; }
+  #hms-chat-input::placeholder { color: #64748b; }
+  #hms-chat-send { width: 42px; height: 42px; flex: 0 0 42px; display: grid; place-items: center; border: 0; border-radius: 11px; background: #0f766e; color: #fff; cursor: pointer; }
+  #hms-chat-send:hover { background: #0d5b54; }
+  #hms-chat-send:disabled { opacity: .6; cursor: wait; }
+  #hms-chat-send svg { width: 18px; height: 18px; }
+  @media (max-width: 480px) { #hms-help-widget { right: 14px; bottom: 14px; } #hms-chat-window { position: fixed; right: 10px; bottom: 82px; width: calc(100vw - 20px); height: min(580px, calc(100vh - 102px)); } }
+</style>
+
+<section id="hms-help-widget" aria-label="HMS workflow help assistant">
+  <div id="hms-chat-window" role="dialog" aria-modal="false" aria-labelledby="hms-chat-heading" hidden>
+    <header id="hms-chat-header">
+      <div id="hms-chat-title">
+        <span id="hms-chat-title-icon"><i data-lucide="messages-square" aria-hidden="true"></i></span>
+        <span><strong id="hms-chat-heading">HMS Help Assistant</strong><small>Workflow help for staff</small></span>
+      </div>
+      <button id="hms-chat-close" type="button" aria-label="Close help chat">&times;</button>
+    </header>
+    <p id="hms-chat-disclaimer">AI assistant — does not provide medical advice. Do not share patient information.</p>
+    <div id="hms-chat-messages" role="log" aria-live="polite" aria-relevant="additions text">
+      <div class="hms-chat-message assistant">Hello! I can help with HMS pages and staff workflows. What would you like to know?</div>
+    </div>
+    <form id="hms-chat-form">
+      <label for="hms-chat-input" hidden>Ask a question about using the HMS</label>
+      <textarea id="hms-chat-input" name="message" rows="1" maxlength="500" placeholder="Ask about an HMS workflow…" aria-label="Ask about an HMS workflow" required></textarea>
+      <button id="hms-chat-send" type="submit" aria-label="Send message"><i data-lucide="send" aria-hidden="true"></i></button>
+    </form>
+  </div>
+  <button id="hms-chat-toggle" type="button" aria-label="Open HMS help chat" aria-expanded="false" aria-controls="hms-chat-window">
+    <i data-lucide="message-circle" aria-hidden="true"></i>
+  </button>
+</section>
+
+<script>
+  (function () {
+    const widget = document.getElementById('hms-help-widget');
+    if (!widget) return;
+
+    const toggle = widget.querySelector('#hms-chat-toggle');
+    const chatWindow = widget.querySelector('#hms-chat-window');
+    const closeButton = widget.querySelector('#hms-chat-close');
+    const form = widget.querySelector('#hms-chat-form');
+    const input = widget.querySelector('#hms-chat-input');
+    const sendButton = widget.querySelector('#hms-chat-send');
+    const messages = widget.querySelector('#hms-chat-messages');
+
+    function appendMessage(text, kind) {
+      const message = document.createElement('div');
+      message.className = 'hms-chat-message ' + kind;
+      message.textContent = text;
+      messages.appendChild(message);
+      messages.scrollTop = messages.scrollHeight;
+      return message;
+    }
+
+    function toggleChat(forceOpen) {
+      const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : chatWindow.hidden;
+      chatWindow.hidden = !shouldOpen;
+      toggle.setAttribute('aria-expanded', String(shouldOpen));
+      toggle.setAttribute('aria-label', shouldOpen ? 'Close HMS help chat' : 'Open HMS help chat');
+      if (shouldOpen) input.focus();
+      else toggle.focus();
+    }
+
+    async function sendChatMessage(event) {
+      if (event) event.preventDefault();
+      const message = input.value.trim();
+      if (!message || sendButton.disabled) return;
+
+      appendMessage(message, 'user');
+      input.value = '';
+      sendButton.disabled = true;
+      const thinking = appendMessage('Thinking…', 'status');
+      const controller = new AbortController();
+      const timeout = window.setTimeout(function () { controller.abort(); }, 10000);
+
+      try {
+        const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+        const csrfToken = csrfMeta ? csrfMeta.content : '';
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          credentials: 'same-origin',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          },
+          body: JSON.stringify({ message: message }),
+          signal: controller.signal
+        });
+
+        thinking.remove();
+        if (response.status === 429) {
+          appendMessage('Too many messages just now. Please wait a moment and try again.', 'assistant');
+          return;
+        }
+        if (response.status === 403 || response.status === 401) {
+          appendMessage('You are not authorized to use this help assistant. Please sign in with an admin or receptionist account.', 'assistant');
+          return;
+        }
+        if (response.status === 400 || response.status === 413 || response.status === 415) {
+          appendMessage('Your message could not be sent. Please check it and try again.', 'assistant');
+          return;
+        }
+        if (response.status === 422) {
+          appendMessage('Please do not share patient information, email addresses, or phone numbers. Ask a general HMS workflow question instead.', 'assistant');
+          return;
+        }
+        if (!response.ok) {
+          appendMessage(response.status === 503 ? 'AI abhi available nahi hai. Please try again later.' : 'The help assistant is temporarily unavailable.', 'assistant');
+          return;
+        }
+
+        const data = await response.json();
+        if (typeof data.reply !== 'string' || !data.reply.trim()) {
+          appendMessage('The help assistant could not prepare a response. Please try again.', 'assistant');
+          return;
+        }
+        appendMessage(data.reply, 'assistant');
+      } catch (error) {
+        thinking.remove();
+        appendMessage(error.name === 'AbortError' ? 'AI abhi available nahi hai. The request timed out; please try again.' : 'AI abhi available nahi hai. Check your connection and try again.', 'assistant');
+      } finally {
+        window.clearTimeout(timeout);
+        sendButton.disabled = false;
+        input.focus();
+      }
+    }
+
+    toggle.addEventListener('click', function () { toggleChat(); });
+    closeButton.addEventListener('click', function () { toggleChat(false); });
+    form.addEventListener('submit', sendChatMessage);
+    input.addEventListener('keydown', function (event) {
+      if (event.key === 'Enter' && !event.shiftKey) {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && !chatWindow.hidden) toggleChat(false);
+    });
+  })();
+</script>
+{% endif %}

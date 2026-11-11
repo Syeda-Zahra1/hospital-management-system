@@ -1,85 +1,102 @@
 {% extends "base.html" %}
+{% block title %}Admin analytics | HMS Care{% endblock %}
+{% block page_title %}Admin analytics{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Revenue, activity, and operational overview</p>{% endblock %}
+
 {% block content %}
-<h2>📊 Admin Analytics Dashboard</h2>
-
-<div class="cards" style="margin-bottom: 30px;">
-  <div class="card" style="border-left-color: #198754;">
-    <h3 id="revenue-card">Rs. 0</h3>
-    <p>Total Revenue</p>
+<div class="summary-grid">
+  <div class="summary-card">
+    <div class="summary-card__icon"><i data-lucide="banknote"></i></div>
+    <div class="summary-card__label">Total collected revenue</div>
+    <div class="summary-card__value" id="revenue-card">Loading…</div>
   </div>
-  <div class="card" style="border-left-color: #0d6efd;">
-    <h3><a href="/admin/logs" style="color: #0d6efd; text-decoration: none;">View Logs 📝</a></h3>
-    <p>Audit Trail</p>
-  </div>
+  <a href="/admin/logs" class="summary-card">
+    <div class="summary-card__icon"><i data-lucide="clipboard-list"></i></div>
+    <div class="summary-card__label">System activity</div>
+    <div class="summary-card__value">View audit trail <i data-lucide="arrow-up-right"></i></div>
+  </a>
 </div>
 
-<div style="display: flex; gap: 20px; flex-wrap: wrap; margin-bottom: 30px;">
-    <div style="flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-        <h3>Patient Registrations</h3>
-        <canvas id="patientChart"></canvas>
-    </div>
-    <div style="flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-        <h3>Appointment Status</h3>
-        <canvas id="apptChart"></canvas>
-    </div>
+<div class="chart-grid">
+  <section class="panel chart-card">
+    <h2>Patient registrations</h2>
+    <div class="chart-container"><canvas id="patientChart" aria-label="Monthly patient registrations"></canvas></div>
+  </section>
+  <section class="panel chart-card">
+    <h2>Appointment status</h2>
+    <div class="chart-container"><canvas id="apptChart" aria-label="Appointments grouped by status"></canvas></div>
+  </section>
 </div>
 
-<h3>⚠️ Low Stock Alerts</h3>
-<table>
-  <tr><th>Medicine</th><th>Remaining Quantity</th></tr>
-  {% for med in low_stock_data %}
-  <tr class="low">
-      <td>{{ med.medicine_name }}</td>
-      <td style="color: #dc3545; font-weight: bold;">{{ med.quantity }}</td>
-  </tr>
-  {% else %}
-  <tr><td colspan="2" style="text-align: center;">All medicines are sufficiently stocked.</td></tr>
-  {% endfor %}
-</table>
+<section class="panel">
+  <div class="section-head" style="padding:22px 22px 0;">
+    <div><h2>Low-stock alerts</h2><p class="inline-note">Items below their reorder threshold</p></div>
+    <a href="/inventory" class="btn btn-secondary"><i data-lucide="package"></i><span>Open inventory</span></a>
+  </div>
+  <div class="alert-list">
+    {% for med in low_stock_data %}
+    <div class="alert-item">
+      <div><strong>{{ med.medicine_name }}</strong><div class="inline-note">Stock is below reorder level</div></div>
+      <span class="badge warning"><i data-lucide="triangle-alert"></i> {{ med.quantity }} remaining</span>
+    </div>
+    {% else %}
+    <div class="alert-item"><span>All medicines are sufficiently stocked.</span>{{ badge('Stock healthy', 'success') }}</div>
+    {% endfor %}
+  </div>
+</section>
 
-<!-- Load Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        fetch('/admin/analytics')
-            .then(response => response.json())
-            .then(data => {
-                // 1. Update Revenue
-                document.getElementById('revenue-card').innerText = 'Rs. ' + data.revenue.toLocaleString();
+  document.addEventListener('DOMContentLoaded', async function () {
+    const revenue = document.getElementById('revenue-card');
+    const patientCanvas = document.getElementById('patientChart');
+    const appointmentCanvas = document.getElementById('apptChart');
+    try {
+      const response = await fetch('/admin/analytics');
+      if (!response.ok) throw new Error('Analytics request failed with status ' + response.status);
+      const data = await response.json();
+      revenue.textContent = 'Rs. ' + Number(data.revenue || 0).toLocaleString();
+      if (!window.Chart) throw new Error('Chart.js is unavailable');
 
-                // 2. Patient Chart (Bar Chart)
-                const pLabels = data.patients.map(item => item.month).reverse();
-                const pCounts = data.patients.map(item => item.count).reverse();
-                
-                if (pLabels.length > 0) {
-                    new Chart(document.getElementById('patientChart'), {
-                        type: 'bar',
-                        data: {
-                            labels: pLabels,
-                            datasets: [{ label: 'New Patients', data: pCounts, backgroundColor: '#0d6efd' }]
-                        }
-                    });
-                } else {
-                    document.getElementById('patientChart').outerHTML = "<p style='color:#888;'>No patient data available yet.</p>";
-                }
+      const patientRows = Array.isArray(data.patients) ? data.patients.slice().reverse() : [];
+      new Chart(patientCanvas, {
+        type: 'bar',
+        data: {
+          labels: patientRows.map(function (item) { return item.month; }),
+          datasets: [{
+            label: 'New patients',
+            data: patientRows.map(function (item) { return item.count; }),
+            backgroundColor: '#0f766e',
+            borderRadius: 6
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+      });
 
-                // 3. Appointment Chart (Doughnut Chart)
-                const aLabels = data.appointments.map(item => item.status);
-                const aCounts = data.appointments.map(item => item.count);
-
-                if (aLabels.length > 0) {
-                    new Chart(document.getElementById('apptChart'), {
-                        type: 'doughnut',
-                        data: {
-                            labels: aLabels,
-                            datasets: [{ data: aCounts, backgroundColor: ['#198754', '#ffc107', '#dc3545'] }]
-                        }
-                    });
-                } else {
-                    document.getElementById('apptChart').outerHTML = "<p style='color:#888;'>No appointment data available yet.</p>";
-                }
-            })
-            .catch(err => console.log("Error loading analytics:", err));
-    });
+      const appointmentRows = Array.isArray(data.appointments) ? data.appointments : [];
+      new Chart(appointmentCanvas, {
+        type: 'doughnut',
+        data: {
+          labels: appointmentRows.map(function (item) { return item.status; }),
+          datasets: [{
+            data: appointmentRows.map(function (item) { return item.count; }),
+            backgroundColor: ['#0f766e', '#10b981', '#f59e0b', '#ef4444', '#94a3b8']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    } catch (error) {
+      console.error('Unable to load admin analytics:', error);
+      if (revenue) revenue.textContent = 'Unavailable';
+      [patientCanvas, appointmentCanvas].forEach(function (canvas) {
+        if (canvas) {
+          const notice = document.createElement('p');
+          notice.className = 'inline-note';
+          notice.textContent = 'Analytics could not be loaded. Please try again.';
+          canvas.replaceWith(notice);
+        }
+      });
+    }
+  });
 </script>
 {% endblock %}
