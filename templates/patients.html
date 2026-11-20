@@ -46,11 +46,17 @@
           <td>{{ p.blood_group or '—' }}</td>
           {% if session.get('role') == 'admin' %}
           <td>
-            <form method="POST" action="/patients/delete/{{ p.patient_id }}" class="inline-form"
-                  data-confirm="Delete the patient record for {{ p.first_name }} {{ p.last_name }}? This action cannot be undone.">
-              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-              <button type="submit" class="delete-btn" aria-label="Delete {{ p.first_name }} {{ p.last_name }}"><i data-lucide="trash-2"></i></button>
-            </form>
+            <div class="row-actions">
+              <button type="button" class="icon-btn-link" aria-label="Edit {{ p.first_name }} {{ p.last_name }}" data-modal-open="#editPatient{{ p.patient_id }}">
+                <i data-lucide="pencil"></i>
+              </button>
+              <form method="POST" action="/patients/delete/{{ p.patient_id }}" class="inline-form"
+                    data-confirm="Delete the patient record for {{ p.first_name }} {{ p.last_name }}? This action cannot be undone."
+                    data-loading>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="delete-btn" aria-label="Delete {{ p.first_name }} {{ p.last_name }}"><i data-lucide="trash-2"></i></button>
+              </form>
+            </div>
           </td>
           {% endif %}
         </tr>
@@ -64,4 +70,41 @@
   </div>
 </section>
 <p class="table-summary">Showing {{ patients|length }} patient records</p>
+
+{% for p in patients %}
+<div class="modal-backdrop" id="editPatient{{ p.patient_id }}" data-modal hidden>
+  <section class="panel modal-card" role="dialog" aria-modal="true" aria-labelledby="edit-patient-title-{{ p.patient_id }}">
+    <div class="modal-card__head">
+      <div>
+        <span class="eyebrow">Patient record</span>
+        <h2 id="edit-patient-title-{{ p.patient_id }}">Edit {{ p.first_name }} {{ p.last_name }}</h2>
+      </div>
+      <button type="button" class="modal-close" aria-label="Close edit patient form" data-modal-close>&times;</button>
+    </div>
+    <form method="POST" action="/patients/update/{{ p.patient_id }}" class="form-grid" data-loading>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group"><label for="edit-patient-first-{{ p.patient_id }}">First name</label><input id="edit-patient-first-{{ p.patient_id }}" name="first_name" value="{{ p.first_name }}" required></div>
+      <div class="form-group"><label for="edit-patient-last-{{ p.patient_id }}">Last name</label><input id="edit-patient-last-{{ p.patient_id }}" name="last_name" value="{{ p.last_name }}" required></div>
+      <div class="form-group"><label for="edit-patient-dob-{{ p.patient_id }}">Date of birth</label><input id="edit-patient-dob-{{ p.patient_id }}" name="dob" type="date" value="{{ p.dob }}"></div>
+      <div class="form-group">
+        <label for="edit-patient-gender-{{ p.patient_id }}">Gender</label>
+        <select id="edit-patient-gender-{{ p.patient_id }}" name="gender" required>
+          <option value="">Select gender</option>
+          <option {% if p.gender == 'Male' %}selected{% endif %}>Male</option>
+          <option {% if p.gender == 'Female' %}selected{% endif %}>Female</option>
+          <option {% if p.gender == 'Other' %}selected{% endif %}>Other</option>
+        </select>
+      </div>
+      <div class="form-group"><label for="edit-patient-phone-{{ p.patient_id }}">Phone</label><input id="edit-patient-phone-{{ p.patient_id }}" name="phone" type="tel" value="{{ p.phone or '' }}"></div>
+      <div class="form-group"><label for="edit-patient-email-{{ p.patient_id }}">Email</label><input id="edit-patient-email-{{ p.patient_id }}" name="email" type="email" value="{{ p.email or '' }}"></div>
+      <div class="form-group full"><label for="edit-patient-address-{{ p.patient_id }}">Address</label><input id="edit-patient-address-{{ p.patient_id }}" name="address" value="{{ p.address or '' }}"></div>
+      <div class="form-group"><label for="edit-patient-blood-{{ p.patient_id }}">Blood group</label><input id="edit-patient-blood-{{ p.patient_id }}" name="blood_group" value="{{ p.blood_group or '' }}" placeholder="e.g., O+"></div>
+      <div class="form-group" style="justify-content:flex-end">
+        <button type="button" class="btn btn-secondary" data-modal-close>Cancel</button>
+        <button type="submit" class="btn btn-primary"><i data-lucide="save"></i><span>Save changes</span></button>
+      </div>
+    </form>
+  </section>
+</div>
+{% endfor %}
 {% endblock %}

@@ -396,6 +396,33 @@ def add_patient():
     return redirect(url_for("patients"))
 
 
+@app.route("/patients/update/<int:pid>", methods=["POST"])
+@role_required('admin')
+def update_patient(pid):
+    f = request.form
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute(
+            """UPDATE patients
+               SET first_name=%s, last_name=%s, dob=%s, gender=%s, phone=%s,
+                   email=%s, address=%s, blood_group=%s
+               WHERE patient_id=%s""",
+            (f['first_name'], f['last_name'], f.get('dob') or None,
+             f['gender'], f.get('phone') or None, f.get('email') or None,
+             f.get('address') or None, f.get('blood_group') or None, pid),
+        )
+        conn.commit()
+        log_action(f"Updated patient ID {pid}: {f['first_name']} {f['last_name']}")
+        flash("Patient updated successfully!", "success")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"❌ Could not update patient: {e}", "error")
+    finally:
+        cur.close(); conn.close()
+
+    return redirect(url_for("patients"))
+
+
 @app.route("/patients/delete/<int:pid>", methods=["POST"])
 @role_required('admin')
 def delete_patient(pid):
@@ -494,7 +521,41 @@ def doctors():
            ORDER BY d.doctor_id DESC"""
     )
     data = cur.fetchall(); cur.close(); conn.close()
-    return render_template("doctors.html", doctors=data)
+    departments = []
+    if session.get('role') == 'admin':
+        conn = get_db(); cur = conn.cursor(cursor_factory=RealDictCursor)
+        cur.execute("SELECT dept_id, dept_name FROM departments ORDER BY dept_name")
+        departments = cur.fetchall(); cur.close(); conn.close()
+    return render_template("doctors.html", doctors=data, departments=departments)
+
+
+@app.route("/doctors/add", methods=["POST"])
+@role_required('admin')
+def add_doctor():
+    f = request.form
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute(
+            """INSERT INTO doctors
+               (first_name, last_name, specialization, email, phone, dept_id, salary)
+               VALUES (%s, %s, %s, %s, %s, %s, %s)""",
+            (f['first_name'], f['last_name'], f.get('specialization') or None,
+             f.get('email') or None, f.get('phone') or None,
+             f.get('dept_id') or None, f.get('salary') or None),
+        )
+        conn.commit()
+        log_action(f"Added new doctor: {f['first_name']} {f['last_name']}")
+        flash("Doctor added successfully!", "success")
+    except psycopg2.errors.ForeignKeyViolation:
+        conn.rollback()
+        flash("Invalid department ID.", "error")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"Could not add doctor: {e}", "error")
+    finally:
+        cur.close(); conn.close()
+
+    return redirect(url_for("doctors"))
 
 
 # ---------- MEDICAL RECORDS & PRESCRIPTIONS ----------
@@ -771,10 +832,13 @@ def staff():
     conn = get_db(); cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute(
         """SELECT s.*, d.dept_name FROM staff s
-           LEFT JOIN departments d ON s.dept_id = d.dept_id"""
+           LEFT JOIN departments d ON s.dept_id = d.dept_id
+           ORDER BY s.staff_id DESC"""
     )
-    data = cur.fetchall(); cur.close(); conn.close()
-    return render_template("staff.html", staff=data)
+    data = cur.fetchall()
+    cur.execute("SELECT dept_id, dept_name FROM departments ORDER BY dept_name")
+    departments = cur.fetchall(); cur.close(); conn.close()
+    return render_template("staff.html", staff=data, departments=departments)
 
 
 @app.route("/staff/add", methods=["POST"])
@@ -786,8 +850,8 @@ def add_staff():
         cur.execute(
             """INSERT INTO staff (first_name, last_name, role, phone, email, dept_id, salary)
                VALUES (%s, %s, %s, %s, %s, %s, %s)""",
-            (f['first_name'], f['last_name'], f['role'], f['phone'],
-             f['email'], f['dept_id'], f['salary']),
+            (f['first_name'], f['last_name'], f['role'], f.get('phone') or None,
+             f.get('email') or None, f.get('dept_id') or None, f.get('salary') or None),
         )
         conn.commit()
         log_action(f"Added new staff member: {f['first_name']} {f['last_name']}")
@@ -798,6 +862,54 @@ def add_staff():
     except psycopg2.Error as e:
         conn.rollback()
         flash(f"❌ Could not add staff: {e}", "error")
+    finally:
+        cur.close(); conn.close()
+
+    return redirect(url_for("staff"))
+
+
+@app.route("/staff/update/<int:sid>", methods=["POST"])
+@role_required('admin')
+def update_staff(sid):
+    f = request.form
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute(
+            """UPDATE staff
+               SET first_name=%s, last_name=%s, role=%s, phone=%s,
+                   email=%s, dept_id=%s, salary=%s
+               WHERE staff_id=%s""",
+            (f['first_name'], f['last_name'], f['role'], f.get('phone') or None,
+             f.get('email') or None, f.get('dept_id') or None,
+             f.get('salary') or None, sid),
+        )
+        conn.commit()
+        log_action(f"Updated staff ID {sid}: {f['first_name']} {f['last_name']}")
+        flash("Staff member updated successfully!", "success")
+    except psycopg2.errors.ForeignKeyViolation:
+        conn.rollback()
+        flash("❌ Invalid department ID.", "error")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"❌ Could not update staff: {e}", "error")
+    finally:
+        cur.close(); conn.close()
+
+    return redirect(url_for("staff"))
+
+
+@app.route("/staff/delete/<int:sid>", methods=["POST"])
+@role_required('admin')
+def delete_staff(sid):
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM staff WHERE staff_id=%s", (sid,))
+        conn.commit()
+        log_action(f"Deleted staff ID {sid}")
+        flash("Staff member deleted.", "success")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"❌ Could not delete staff: {e}", "error")
     finally:
         cur.close(); conn.close()
 

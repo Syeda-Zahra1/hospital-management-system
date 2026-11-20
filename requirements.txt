@@ -4,3 +4,5 @@ python-dotenv
 Flask-WTF
 Flask-Limiter
 openai==2.8.1
+gunicorn
+python-3.11.9

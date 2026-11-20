@@ -7,6 +7,7 @@ A Flask and PostgreSQL web application for common hospital administration workfl
 - Sign-in, patient self-registration, hashed passwords, and role-based access.
 - Role-specific dashboards and navigation for administrators, doctors, receptionists, pharmacists, laboratory technicians, and patients.
 - Patient and doctor directories, appointments, medical records, and prescriptions.
+- Administrators can add doctor and staff records by selecting a department using its name and ID.
 - Medicine inventory, pharmacy dispensing, laboratory tests, room admission/discharge, and billing.
 - Administrator analytics and audit logs.
 - Patient portal for viewing personal appointments, records, and bills. Patients can request appointments by selecting a doctor by name.

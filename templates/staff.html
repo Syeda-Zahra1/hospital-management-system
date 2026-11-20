@@ -13,7 +13,15 @@
     <div class="form-group"><label for="staff-role">Role</label><input id="staff-role" name="role" placeholder="e.g., Nurse" required></div>
     <div class="form-group"><label for="staff-phone">Phone</label><input id="staff-phone" name="phone" type="tel"></div>
     <div class="form-group"><label for="staff-email">Email</label><input id="staff-email" name="email" type="email"></div>
-    <div class="form-group"><label for="staff-department">Department ID</label><input id="staff-department" name="dept_id" type="number" min="1"></div>
+    <div class="form-group">
+      <label for="staff-department">Department</label>
+      <select id="staff-department" name="dept_id">
+        <option value="">Unassigned</option>
+        {% for department in departments %}
+        <option value="{{ department.dept_id }}">{{ department.dept_name }} (ID: {{ department.dept_id }})</option>
+        {% endfor %}
+      </select>
+    </div>
     <div class="form-group"><label for="staff-salary">Salary</label><input id="staff-salary" name="salary" type="number" min="0" step="0.01"></div>
     <div class="form-group" style="justify-content:flex-end"><button type="submit" class="btn btn-primary"><i data-lucide="user-plus"></i><span>Add staff member</span></button></div>
   </form>
@@ -27,22 +35,73 @@
 <section class="table-card">
   <div class="table-wrap">
     <table id="staffTable">
-      <thead><tr><th>Team member</th><th>Role</th><th>Department</th><th>Phone</th><th>Email</th><th>Salary</th></tr></thead>
+      <thead><tr><th>Team member</th><th>Role</th><th>Department (ID)</th><th>Phone</th><th>Email</th><th>Salary</th><th>Actions</th></tr></thead>
       <tbody>
         {% for s in staff %}
         <tr>
           <td><strong>{{ s.first_name }} {{ s.last_name }}</strong><div class="inline-note">Staff #{{ s.staff_id }}</div></td>
           <td>{{ s.role }}</td>
-          <td>{{ s.dept_name or 'Unassigned' }}</td>
+          <td>{{ s.dept_name or 'Unassigned' }}{% if s.dept_id %} (ID: {{ s.dept_id }}){% endif %}</td>
           <td>{{ s.phone or '—' }}</td>
           <td>{{ s.email or '—' }}</td>
           <td>Rs. {{ s.salary }}</td>
+          <td>
+            <div class="row-actions">
+              <button type="button" class="icon-btn-link" aria-label="Edit {{ s.first_name }} {{ s.last_name }}" data-modal-open="#editStaff{{ s.staff_id }}">
+                <i data-lucide="pencil"></i>
+              </button>
+              <form method="POST" action="/staff/delete/{{ s.staff_id }}" class="inline-form"
+                    data-confirm="Delete {{ s.first_name }} {{ s.last_name }} from the staff directory? This action cannot be undone."
+                    data-loading>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="delete-btn" aria-label="Delete {{ s.first_name }} {{ s.last_name }}">
+                  <i data-lucide="trash-2"></i>
+                </button>
+              </form>
+            </div>
+          </td>
         </tr>
         {% else %}
-        <tr><td class="empty-state-cell" colspan="6">{{ empty_state('briefcase-business', 'No staff records', 'Add a team member to start building the directory.') }}</td></tr>
+        <tr><td class="empty-state-cell" colspan="7">{{ empty_state('briefcase-business', 'No staff records', 'Add a team member to start building the directory.') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
+
+{% for s in staff %}
+<div class="modal-backdrop" id="editStaff{{ s.staff_id }}" data-modal hidden>
+  <section class="panel modal-card" role="dialog" aria-modal="true" aria-labelledby="edit-staff-title-{{ s.staff_id }}">
+    <div class="modal-card__head">
+      <div>
+        <span class="eyebrow">Staff record</span>
+        <h2 id="edit-staff-title-{{ s.staff_id }}">Edit {{ s.first_name }} {{ s.last_name }}</h2>
+      </div>
+      <button type="button" class="modal-close" aria-label="Close edit staff form" data-modal-close>&times;</button>
+    </div>
+    <form method="POST" action="/staff/update/{{ s.staff_id }}" class="form-grid" data-loading>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group"><label for="edit-staff-first-{{ s.staff_id }}">First name</label><input id="edit-staff-first-{{ s.staff_id }}" name="first_name" value="{{ s.first_name }}" required></div>
+      <div class="form-group"><label for="edit-staff-last-{{ s.staff_id }}">Last name</label><input id="edit-staff-last-{{ s.staff_id }}" name="last_name" value="{{ s.last_name }}" required></div>
+      <div class="form-group"><label for="edit-staff-role-{{ s.staff_id }}">Role</label><input id="edit-staff-role-{{ s.staff_id }}" name="role" value="{{ s.role }}" required></div>
+      <div class="form-group"><label for="edit-staff-phone-{{ s.staff_id }}">Phone</label><input id="edit-staff-phone-{{ s.staff_id }}" name="phone" type="tel" value="{{ s.phone or '' }}"></div>
+      <div class="form-group"><label for="edit-staff-email-{{ s.staff_id }}">Email</label><input id="edit-staff-email-{{ s.staff_id }}" name="email" type="email" value="{{ s.email or '' }}"></div>
+      <div class="form-group">
+        <label for="edit-staff-department-{{ s.staff_id }}">Department</label>
+        <select id="edit-staff-department-{{ s.staff_id }}" name="dept_id">
+          <option value="" {% if not s.dept_id %}selected{% endif %}>Unassigned</option>
+          {% for department in departments %}
+          <option value="{{ department.dept_id }}" {% if s.dept_id == department.dept_id %}selected{% endif %}>{{ department.dept_name }} (ID: {{ department.dept_id }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group"><label for="edit-staff-salary-{{ s.staff_id }}">Salary</label><input id="edit-staff-salary-{{ s.staff_id }}" name="salary" type="number" min="0" step="0.01" value="{{ s.salary or '' }}"></div>
+      <div class="form-group" style="justify-content:flex-end">
+        <button type="button" class="btn btn-secondary" data-modal-close>Cancel</button>
+        <button type="submit" class="btn btn-primary"><i data-lucide="save"></i><span>Save changes</span></button>
+      </div>
+    </form>
+  </section>
+</div>
+{% endfor %}
 {% endblock %}
