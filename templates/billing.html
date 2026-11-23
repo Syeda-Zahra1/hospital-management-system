@@ -48,10 +48,22 @@
   </form>
 </details>
 
+<div class="toolbar">
+  <p class="inline-note">{{ total }} invoices</p>
+  <form method="GET" action="/billing" class="controls">
+    <select name="status" aria-label="Filter payment status">
+      <option value="">All statuses</option>
+      <option value="Paid" {% if status_filter == 'Paid' %}selected{% endif %}>Paid</option>
+      <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+    </select>
+    <button type="submit" class="btn btn-secondary">Filter</button>
+  </form>
+</div>
+
 <section class="table-card">
   <div class="table-wrap">
     <table>
-      <thead><tr><th>Invoice</th><th>Patient</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+      <thead><tr><th>Invoice</th><th>Patient</th><th>Amount</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead>
       <tbody>
         {% for b in bills %}
         <tr>
@@ -60,12 +72,48 @@
           <td>Rs. {{ b.total_amount }}</td>
           <td>{% if b.payment_status == 'Paid' %}{{ badge('Paid', 'success') }}{% else %}{{ badge(b.payment_status or 'Pending', 'warning') }}{% endif %}</td>
           <td>{{ b.bill_date }}</td>
+          <td>
+            <div class="row-actions">
+              <button type="button" class="icon-btn-link" aria-label="Edit invoice {{ b.bill_id }}" data-modal-open="#editBill{{ b.bill_id }}"><i data-lucide="pencil"></i></button>
+              {% if session.get('role') == 'admin' %}
+              <form method="POST" action="/billing/delete/{{ b.bill_id }}" class="inline-form" data-confirm="Delete invoice #{{ b.bill_id }}? This cannot be undone." data-loading>
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="delete-btn" aria-label="Delete invoice {{ b.bill_id }}"><i data-lucide="trash-2"></i></button>
+              </form>
+              {% endif %}
+            </div>
+          </td>
         </tr>
         {% else %}
-        <tr><td class="empty-state-cell" colspan="5">{{ empty_state('receipt', 'No invoices yet', 'New patient invoices will appear here.') }}</td></tr>
+        <tr><td class="empty-state-cell" colspan="6">{{ empty_state('receipt', 'No invoices yet', 'New patient invoices will appear here.') }}</td></tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
 </section>
+
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="Billing pagination">
+  {% if page > 1 %}<a class="btn btn-secondary" href="/billing?page={{ page - 1 }}&status={{ status_filter|urlencode }}">Previous</a>{% endif %}
+  <span class="inline-note">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}<a class="btn btn-secondary" href="/billing?page={{ page + 1 }}&status={{ status_filter|urlencode }}">Next</a>{% endif %}
+</nav>
+{% endif %}
+
+{% for b in bills %}
+<div class="modal-backdrop" id="editBill{{ b.bill_id }}" data-modal hidden>
+  <section class="panel modal-card" role="dialog" aria-modal="true" aria-labelledby="edit-bill-title-{{ b.bill_id }}">
+    <div class="modal-card__head">
+      <div><span class="eyebrow">Invoice</span><h2 id="edit-bill-title-{{ b.bill_id }}">Edit invoice #{{ b.bill_id }}</h2></div>
+      <button type="button" class="modal-close" aria-label="Close invoice editor" data-modal-close>&times;</button>
+    </div>
+    <form method="POST" action="/billing/update/{{ b.bill_id }}" class="form-grid" data-loading>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group"><label for="bill-amount-{{ b.bill_id }}">Amount (Rs.)</label><input id="bill-amount-{{ b.bill_id }}" name="total_amount" type="number" min="0" step="0.01" value="{{ b.total_amount }}" required></div>
+      <div class="form-group"><label for="bill-status-{{ b.bill_id }}">Payment status</label><select id="bill-status-{{ b.bill_id }}" name="payment_status"><option value="Pending" {% if b.payment_status != 'Paid' %}selected{% endif %}>Pending</option><option value="Paid" {% if b.payment_status == 'Paid' %}selected{% endif %}>Paid</option></select></div>
+      <div class="form-group" style="justify-content:flex-end"><button type="button" class="btn btn-secondary" data-modal-close>Cancel</button><button type="submit" class="btn btn-primary">Save changes</button></div>
+    </form>
+  </section>
+</div>
+{% endfor %}
 {% endblock %}

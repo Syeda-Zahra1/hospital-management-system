@@ -5,12 +5,12 @@
 
 {% block content %}
 <div class="toolbar">
-  <p class="inline-note">{{ patients|length }} patient records</p>
+  <p class="inline-note">{{ total }} patient records</p>
   <div class="controls">
-    <label class="search-box">
+    <form method="GET" action="/patients" class="search-box">
       <i data-lucide="search"></i>
-      <input type="search" data-table-search="#patientTable" placeholder="Search patients" aria-label="Search patients">
-    </label>
+      <input type="search" name="search" value="{{ search }}" placeholder="Search by patient name" aria-label="Search patients">
+    </form>
   </div>
 </div>
 
@@ -70,6 +70,13 @@
   </div>
 </section>
 <p class="table-summary">Showing {{ patients|length }} patient records</p>
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="Patient pagination">
+  {% if page > 1 %}<a class="btn btn-secondary" href="/patients?page={{ page - 1 }}&search={{ search|urlencode }}">Previous</a>{% endif %}
+  <span class="inline-note">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}<a class="btn btn-secondary" href="/patients?page={{ page + 1 }}&search={{ search|urlencode }}">Next</a>{% endif %}
+</nav>
+{% endif %}
 
 {% for p in patients %}
 <div class="modal-backdrop" id="editPatient{{ p.patient_id }}" data-modal hidden>

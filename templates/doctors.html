@@ -31,12 +31,12 @@
 
 <div class="toolbar">
   <div>
-    <p class="inline-note">{{ doctors|length }} doctors in the directory</p>
+    <p class="inline-note">{{ total }} doctors in the directory</p>
   </div>
-  <label class="search-box">
+  <form method="GET" action="/doctors" class="search-box">
     <i data-lucide="search"></i>
-    <input type="search" id="doctorSearch" data-table-search="#doctorTable" placeholder="Search doctors">
-  </label>
+    <input type="search" name="search" value="{{ search }}" placeholder="Search doctors by name">
+  </form>
 </div>
 
 <section class="table-card">
@@ -49,6 +49,7 @@
           <th>Department (ID)</th>
           <th>Phone</th>
           {% if session.get('role') == 'admin' %}<th>Salary</th>{% endif %}
+          {% if session.get('role') == 'admin' %}<th>Actions</th>{% endif %}
         </tr>
       </thead>
       <tbody>
@@ -59,9 +60,18 @@
           <td><span class="badge neutral">{{ d.dept_name or 'Unassigned' }}{% if d.dept_id %} (ID: {{ d.dept_id }}){% endif %}</span></td>
           <td>{{ d.phone or '—' }}</td>
           {% if session.get('role') == 'admin' %}<td>Rs. {{ d.salary }}</td>{% endif %}
+          {% if session.get('role') == 'admin' %}
+          <td><div class="row-actions">
+            <button type="button" class="icon-btn-link" aria-label="Edit Dr. {{ d.first_name }} {{ d.last_name }}" data-modal-open="#editDoctor{{ d.doctor_id }}"><i data-lucide="pencil"></i></button>
+            <form method="POST" action="/doctors/delete/{{ d.doctor_id }}" class="inline-form" data-confirm="Delete Dr. {{ d.first_name }} {{ d.last_name }}? This may affect related appointments." data-loading>
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="delete-btn" aria-label="Delete Dr. {{ d.first_name }} {{ d.last_name }}"><i data-lucide="trash-2"></i></button>
+            </form>
+          </div></td>
+          {% endif %}
         </tr>
         {% else %}
-        <tr><td class="empty-state-cell" colspan="{% if session.get('role') == 'admin' %}5{% else %}4{% endif %}">
+        <tr><td class="empty-state-cell" colspan="{% if session.get('role') == 'admin' %}6{% else %}4{% endif %}">
           {{ empty_state('stethoscope', 'No doctors found', 'The directory will show doctors when records are available.') }}
         </td></tr>
         {% endfor %}
@@ -69,4 +79,33 @@
     </table>
   </div>
 </section>
+
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="Doctor pagination">
+  {% if page > 1 %}<a class="btn btn-secondary" href="/doctors?page={{ page - 1 }}&search={{ search|urlencode }}">Previous</a>{% endif %}
+  <span class="inline-note">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}<a class="btn btn-secondary" href="/doctors?page={{ page + 1 }}&search={{ search|urlencode }}">Next</a>{% endif %}
+</nav>
+{% endif %}
+
+{% if session.get('role') == 'admin' %}
+{% for d in doctors %}
+<div class="modal-backdrop" id="editDoctor{{ d.doctor_id }}" data-modal hidden>
+  <section class="panel modal-card" role="dialog" aria-modal="true" aria-labelledby="edit-doctor-title-{{ d.doctor_id }}">
+    <div class="modal-card__head"><div><span class="eyebrow">Doctor record</span><h2 id="edit-doctor-title-{{ d.doctor_id }}">Edit Dr. {{ d.first_name }} {{ d.last_name }}</h2></div><button type="button" class="modal-close" aria-label="Close edit doctor form" data-modal-close>&times;</button></div>
+    <form method="POST" action="/doctors/update/{{ d.doctor_id }}" class="form-grid" data-loading>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="form-group"><label for="edit-doctor-first-{{ d.doctor_id }}">First name</label><input id="edit-doctor-first-{{ d.doctor_id }}" name="first_name" value="{{ d.first_name }}" required></div>
+      <div class="form-group"><label for="edit-doctor-last-{{ d.doctor_id }}">Last name</label><input id="edit-doctor-last-{{ d.doctor_id }}" name="last_name" value="{{ d.last_name }}" required></div>
+      <div class="form-group"><label for="edit-doctor-specialization-{{ d.doctor_id }}">Specialization</label><input id="edit-doctor-specialization-{{ d.doctor_id }}" name="specialization" value="{{ d.specialization or '' }}"></div>
+      <div class="form-group"><label for="edit-doctor-email-{{ d.doctor_id }}">Email</label><input id="edit-doctor-email-{{ d.doctor_id }}" name="email" type="email" value="{{ d.email or '' }}"></div>
+      <div class="form-group"><label for="edit-doctor-phone-{{ d.doctor_id }}">Phone</label><input id="edit-doctor-phone-{{ d.doctor_id }}" name="phone" type="tel" value="{{ d.phone or '' }}"></div>
+      <div class="form-group"><label for="edit-doctor-department-{{ d.doctor_id }}">Department</label><select id="edit-doctor-department-{{ d.doctor_id }}" name="dept_id"><option value="">Unassigned</option>{% for department in departments %}<option value="{{ department.dept_id }}" {% if d.dept_id == department.dept_id %}selected{% endif %}>{{ department.dept_name }}</option>{% endfor %}</select></div>
+      <div class="form-group"><label for="edit-doctor-salary-{{ d.doctor_id }}">Salary</label><input id="edit-doctor-salary-{{ d.doctor_id }}" name="salary" type="number" min="0" step="0.01" value="{{ d.salary or '' }}"></div>
+      <div class="form-group" style="justify-content:flex-end"><button type="button" class="btn btn-secondary" data-modal-close>Cancel</button><button type="submit" class="btn btn-primary">Save changes</button></div>
+    </form>
+  </section>
+</div>
+{% endfor %}
+{% endif %}
 {% endblock %}

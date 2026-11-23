@@ -36,18 +36,27 @@
 {% endif %}
 
 <div class="toolbar">
-  <p class="inline-note">{{ appointments|length }} appointments</p>
-  <label class="search-box">
-    <i data-lucide="search"></i>
-    <input type="search" id="appointmentSearch" data-table-search="#appointmentTable" placeholder="Search appointments">
-  </label>
+  <p class="inline-note">{{ total }} appointments</p>
+  <form method="GET" action="/appointments" class="controls">
+    <label class="search-box">
+      <i data-lucide="calendar-days"></i>
+      <input type="date" name="date" value="{{ date_filter }}" aria-label="Filter appointments by date">
+    </label>
+    <select name="status" aria-label="Filter by status">
+      <option value="">All statuses</option>
+      {% for option in ['Scheduled', 'Completed', 'Cancelled', 'No-show'] %}
+      <option value="{{ option }}" {% if status_filter == option %}selected{% endif %}>{{ option }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-secondary">Filter</button>
+  </form>
 </div>
 
 <section class="table-card">
   <div class="table-wrap">
     <table id="appointmentTable">
       <thead>
-        <tr><th>Visit</th><th>Patient</th><th>Doctor</th><th>Date and time</th><th>Status</th><th>Reason</th></tr>
+        <tr><th>Visit</th><th>Patient</th><th>Doctor</th><th>Date and time</th><th>Status</th><th>Reason</th><th>Actions</th></tr>
       </thead>
       <tbody>
         {% for a in appointments %}
@@ -64,9 +73,22 @@
             {% else %}{{ badge(a.status or 'Scheduled', 'warning') }}{% endif %}
           </td>
           <td>{{ a.reason or '—' }}</td>
+          <td>
+            {% if session.get('role') in ['admin', 'receptionist', 'doctor'] %}
+            <form method="POST" action="/appointments/status/{{ a.appointment_id }}" class="table-action" data-loading>
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <select name="status" aria-label="Appointment status">
+                {% for option in ['Scheduled', 'Completed', 'Cancelled', 'No-show'] %}
+                <option value="{{ option }}" {% if (a.status or 'Scheduled') == option %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+              </select>
+              <button type="submit" class="btn btn-secondary">Update</button>
+            </form>
+            {% else %}—{% endif %}
+          </td>
         </tr>
         {% else %}
-        <tr><td class="empty-state-cell" colspan="6">
+        <tr><td class="empty-state-cell" colspan="7">
           {{ empty_state('calendar-days', 'No appointments yet', 'New bookings will appear here.') }}
         </td></tr>
         {% endfor %}
@@ -74,4 +96,11 @@
     </table>
   </div>
 </section>
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="Appointment pagination">
+  {% if page > 1 %}<a class="btn btn-secondary" href="/appointments?page={{ page - 1 }}&date={{ date_filter|urlencode }}&status={{ status_filter|urlencode }}">Previous</a>{% endif %}
+  <span class="inline-note">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}<a class="btn btn-secondary" href="/appointments?page={{ page + 1 }}&date={{ date_filter|urlencode }}&status={{ status_filter|urlencode }}">Next</a>{% endif %}
+</nav>
+{% endif %}
 {% endblock %}

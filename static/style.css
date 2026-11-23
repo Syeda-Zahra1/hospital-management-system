@@ -710,6 +710,21 @@ tr.low-stock {
   margin-top: 14px;
 }
 
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .empty-state {
   padding: 46px 30px;
   text-align: center;

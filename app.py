@@ -204,6 +204,16 @@ def get_db():
     return psycopg2.connect(os.environ["DATABASE_URL"])
 
 
+def get_pagination(total, per_page=10):
+    try:
+        page = max(1, int(request.args.get("page", 1)))
+    except (TypeError, ValueError):
+        page = 1
+    total_pages = max(1, (total + per_page - 1) // per_page)
+    page = min(page, total_pages)
+    return page, per_page, total_pages, (page - 1) * per_page
+
+
 # ---------- HMS WORKFLOW HELP CHAT ----------
 @app.route("/api/chat", methods=["POST"])
 @role_required("admin", "receptionist")
@@ -353,6 +363,8 @@ def api_chat():
 def index():
     if session.get('role') == 'patient':
         return redirect(url_for('patient_dashboard'))
+    if session.get('role') == 'doctor':
+        return redirect(url_for('doctor_dashboard'))
 
     conn = get_db(); cur = conn.cursor(cursor_factory=RealDictCursor)
     cur.execute("SELECT COUNT(*) AS c FROM patients"); patients = cur.fetchone()['c']
@@ -363,20 +375,105 @@ def index():
     return render_template("index.html", patients=patients, doctors=doctors, appts=appts, low=low)
 
 
+@app.route('/doctor/dashboard')
+@role_required('doctor')
+def doctor_dashboard():
+    doctor_id = session.get('doctor_id')
+    conn = get_db(); cur = conn.cursor(cursor_factory=RealDictCursor)
+    if not doctor_id:
+        cur.execute(
+            """SELECT doctor_id FROM doctors
+               WHERE first_name || ' ' || last_name = %s LIMIT 1""",
+            (session.get('full_name'),),
+        )
+        row = cur.fetchone()
+        doctor_id = row['doctor_id'] if row else None
+    if doctor_id:
+        cur.execute(
+            """SELECT COUNT(*) AS total FROM appointments
+               WHERE doctor_id=%s AND COALESCE(status, 'Scheduled') <> 'Cancelled'""",
+            (doctor_id,),
+        )
+        appointment_count = cur.fetchone()['total']
+        cur.execute(
+            """SELECT COUNT(*) AS total FROM medical_records WHERE doctor_id=%s""",
+            (doctor_id,),
+        )
+        record_count = cur.fetchone()['total']
+        cur.execute(
+            """SELECT a.appointment_id, a.appointment_date, a.status, a.reason,
+                      p.first_name || ' ' || p.last_name AS patient_name
+               FROM appointments a JOIN patients p ON a.patient_id=p.patient_id
+               WHERE a.doctor_id=%s
+               ORDER BY a.appointment_date DESC LIMIT 10""",
+            (doctor_id,),
+        )
+        appointments = cur.fetchall()
+        cur.execute(
+            """SELECT mr.record_id, mr.visit_date, mr.diagnosis,
+                      p.first_name || ' ' || p.last_name AS patient_name
+               FROM medical_records mr JOIN patients p ON mr.patient_id=p.patient_id
+               WHERE mr.doctor_id=%s
+               ORDER BY mr.visit_date DESC LIMIT 10""",
+            (doctor_id,),
+        )
+        records = cur.fetchall()
+    else:
+        appointment_count = 0
+        record_count = 0
+        appointments = []
+        records = []
+    cur.close(); conn.close()
+    return render_template("doctor_dashboard.html",
+                           appointment_count=appointment_count,
+                           record_count=record_count,
+                           appointments=appointments,
+                           records=records)
+
+
 # ---------- PATIENTS ----------
 @app.route("/patients")
 @role_required('admin', 'doctor', 'receptionist')
 def patients():
     conn = get_db(); cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute("SELECT * FROM patients ORDER BY patient_id DESC")
+    search = request.args.get("search", "").strip()
+    if search:
+        cur.execute(
+            """SELECT COUNT(*) AS total FROM patients
+               WHERE first_name ILIKE %s OR last_name ILIKE %s
+                  OR (first_name || ' ' || last_name) ILIKE %s""",
+            (f"%{search}%", f"%{search}%", f"%{search}%"),
+        )
+        total = cur.fetchone()["total"]
+        page, per_page, total_pages, offset = get_pagination(total)
+        cur.execute(
+            """SELECT * FROM patients
+               WHERE first_name ILIKE %s OR last_name ILIKE %s
+                  OR (first_name || ' ' || last_name) ILIKE %s
+               ORDER BY patient_id DESC LIMIT %s OFFSET %s""",
+            (f"%{search}%", f"%{search}%", f"%{search}%", per_page, offset),
+        )
+    else:
+        cur.execute("SELECT COUNT(*) AS total FROM patients")
+        total = cur.fetchone()["total"]
+        page, per_page, total_pages, offset = get_pagination(total)
+        cur.execute("SELECT * FROM patients ORDER BY patient_id DESC LIMIT %s OFFSET %s",
+                    (per_page, offset))
     data = cur.fetchall(); cur.close(); conn.close()
-    return render_template("patients.html", patients=data)
+    return render_template("patients.html", patients=data, search=search,
+                           page=page, total_pages=total_pages, total=total)
 
 
 @app.route("/patients/add", methods=["POST"])
 @role_required('admin', 'receptionist')
 def add_patient():
     f = request.form
+    if not f['first_name'].strip() or not f['last_name'].strip() or not f['dob'] or f['gender'] not in {'Male', 'Female', 'Other'}:
+        flash("❌ Enter a valid name, date of birth, and gender.", "error")
+        return redirect(url_for("patients"))
+    if f.get('email') and (' ' in f['email'] or '@' not in f['email']):
+        flash("❌ Enter a valid email address.", "error")
+        return redirect(url_for("patients"))
     conn = get_db(); cur = conn.cursor()
     try:
         cur.execute(
@@ -400,6 +497,12 @@ def add_patient():
 @role_required('admin')
 def update_patient(pid):
     f = request.form
+    if not f['first_name'].strip() or not f['last_name'].strip() or f['gender'] not in {'Male', 'Female', 'Other'}:
+        flash("❌ Enter a valid name and gender.", "error")
+        return redirect(url_for("patients"))
+    if f.get('email') and (' ' in f['email'] or '@' not in f['email']):
+        flash("❌ Enter a valid email address.", "error")
+        return redirect(url_for("patients"))
     conn = get_db(); cur = conn.cursor()
     try:
         cur.execute(
@@ -515,24 +618,54 @@ def patient_book_appointment():
 @role_required('admin', 'doctor', 'receptionist', 'patient')
 def doctors():
     conn = get_db(); cur = conn.cursor(cursor_factory=RealDictCursor)
-    cur.execute(
-        """SELECT d.*, dp.dept_name FROM doctors d
-           LEFT JOIN departments dp ON d.dept_id = dp.dept_id
-           ORDER BY d.doctor_id DESC"""
-    )
+    search = request.args.get("search", "").strip()
+    if search:
+        cur.execute(
+            """SELECT COUNT(*) AS total FROM doctors d
+               WHERE d.first_name ILIKE %s OR d.last_name ILIKE %s
+                  OR (d.first_name || ' ' || d.last_name) ILIKE %s""",
+            (f"%{search}%", f"%{search}%", f"%{search}%"),
+        )
+        total = cur.fetchone()["total"]
+        page, per_page, total_pages, offset = get_pagination(total)
+        cur.execute(
+            """SELECT d.*, dp.dept_name FROM doctors d
+               LEFT JOIN departments dp ON d.dept_id = dp.dept_id
+               WHERE d.first_name ILIKE %s OR d.last_name ILIKE %s
+                  OR (d.first_name || ' ' || d.last_name) ILIKE %s
+               ORDER BY d.doctor_id DESC LIMIT %s OFFSET %s""",
+            (f"%{search}%", f"%{search}%", f"%{search}%", per_page, offset),
+        )
+    else:
+        cur.execute("SELECT COUNT(*) AS total FROM doctors")
+        total = cur.fetchone()["total"]
+        page, per_page, total_pages, offset = get_pagination(total)
+        cur.execute(
+            """SELECT d.*, dp.dept_name FROM doctors d
+               LEFT JOIN departments dp ON d.dept_id = dp.dept_id
+               ORDER BY d.doctor_id DESC LIMIT %s OFFSET %s""",
+            (per_page, offset),
+        )
     data = cur.fetchall(); cur.close(); conn.close()
     departments = []
     if session.get('role') == 'admin':
         conn = get_db(); cur = conn.cursor(cursor_factory=RealDictCursor)
         cur.execute("SELECT dept_id, dept_name FROM departments ORDER BY dept_name")
         departments = cur.fetchall(); cur.close(); conn.close()
-    return render_template("doctors.html", doctors=data, departments=departments)
+    return render_template("doctors.html", doctors=data, departments=departments,
+                           search=search, page=page, total_pages=total_pages, total=total)
 
 
 @app.route("/doctors/add", methods=["POST"])
 @role_required('admin')
 def add_doctor():
     f = request.form
+    if not f['first_name'].strip() or not f['last_name'].strip():
+        flash("❌ Enter the doctor's first and last name.", "error")
+        return redirect(url_for("doctors"))
+    if f.get('email') and (' ' in f['email'] or '@' not in f['email']):
+        flash("❌ Enter a valid email address.", "error")
+        return redirect(url_for("doctors"))
     conn = get_db(); cur = conn.cursor()
     try:
         cur.execute(
@@ -555,6 +688,59 @@ def add_doctor():
     finally:
         cur.close(); conn.close()
 
+    return redirect(url_for("doctors"))
+
+
+@app.route("/doctors/update/<int:did>", methods=["POST"])
+@role_required('admin')
+def update_doctor(did):
+    f = request.form
+    if not f['first_name'].strip() or not f['last_name'].strip():
+        flash("❌ Enter the doctor's first and last name.", "error")
+        return redirect(url_for("doctors"))
+    if f.get('email') and (' ' in f['email'] or '@' not in f['email']):
+        flash("❌ Enter a valid email address.", "error")
+        return redirect(url_for("doctors"))
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute(
+            """UPDATE doctors
+               SET first_name=%s, last_name=%s, specialization=%s, email=%s,
+                   phone=%s, dept_id=%s, salary=%s
+               WHERE doctor_id=%s""",
+            (f['first_name'].strip(), f['last_name'].strip(),
+             f.get('specialization') or None, f.get('email') or None,
+             f.get('phone') or None, f.get('dept_id') or None,
+             f.get('salary') or None, did),
+        )
+        conn.commit()
+        log_action(f"Updated doctor ID {did}: {f['first_name']} {f['last_name']}")
+        flash("Doctor updated successfully!", "success")
+    except psycopg2.errors.ForeignKeyViolation:
+        conn.rollback()
+        flash("❌ Invalid department ID.", "error")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"❌ Could not update doctor: {e}", "error")
+    finally:
+        cur.close(); conn.close()
+    return redirect(url_for("doctors"))
+
+
+@app.route("/doctors/delete/<int:did>", methods=["POST"])
+@role_required('admin')
+def delete_doctor(did):
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM doctors WHERE doctor_id=%s", (did,))
+        conn.commit()
+        log_action(f"Deleted doctor ID {did}")
+        flash("Doctor deleted.", "success")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"❌ Could not delete doctor: {e}", "error")
+    finally:
+        cur.close(); conn.close()
     return redirect(url_for("doctors"))
 
 
@@ -629,22 +815,48 @@ def add_prescription():
 @role_required('admin', 'doctor', 'receptionist')
 def appointments():
     conn = get_db(); cur = conn.cursor(cursor_factory=RealDictCursor)
+    date_filter = request.args.get("date", "").strip()
+    status_filter = request.args.get("status", "").strip()
+    conditions = []
+    params = []
+    if date_filter:
+        conditions.append("CAST(a.appointment_date AS DATE) = %s")
+        params.append(date_filter)
+    if status_filter:
+        conditions.append("COALESCE(a.status, 'Scheduled') = %s")
+        params.append(status_filter)
+    where_sql = " WHERE " + " AND ".join(conditions) if conditions else ""
+    cur.execute(
+        """SELECT COUNT(*) AS total FROM appointments a""" + where_sql,
+        tuple(params),
+    )
+    total = cur.fetchone()["total"]
+    page, per_page, total_pages, offset = get_pagination(total)
     cur.execute(
         """SELECT a.*, p.first_name || ' ' || p.last_name AS patient_name,
                   d.first_name || ' ' || d.last_name AS doctor_name
            FROM appointments a
            JOIN patients p ON a.patient_id = p.patient_id
-           JOIN doctors d ON a.doctor_id = d.doctor_id
-           ORDER BY a.appointment_date DESC"""
+           JOIN doctors d ON a.doctor_id = d.doctor_id""" + where_sql +
+        """ ORDER BY a.appointment_date DESC LIMIT %s OFFSET %s""",
+        tuple(params + [per_page, offset]),
     )
     data = cur.fetchall(); cur.close(); conn.close()
-    return render_template("appointments.html", appointments=data)
+    return render_template("appointments.html", appointments=data, date_filter=date_filter,
+                           status_filter=status_filter, page=page,
+                           total_pages=total_pages, total=total)
 
 
 @app.route("/appointments/add", methods=["POST"])
 @role_required('admin', 'receptionist')
 def add_appointment():
     f = request.form
+    if not f.get('patient_id', '').isdigit() or not f.get('doctor_id', '').isdigit():
+        flash("❌ Select a valid patient and doctor.", "error")
+        return redirect(url_for("appointments"))
+    if not f.get('appointment_date'):
+        flash("❌ Enter a valid appointment date and time.", "error")
+        return redirect(url_for("appointments"))
     conn = get_db(); cur = conn.cursor()
     try:
         cur.execute(
@@ -667,6 +879,33 @@ def add_appointment():
     finally:
         cur.close(); conn.close()
 
+    return redirect(url_for("appointments"))
+
+
+@app.route("/appointments/status/<int:aid>", methods=["POST"])
+@role_required('admin', 'receptionist', 'doctor')
+def update_appointment_status(aid):
+    status = request.form.get("status", "").strip()
+    if status not in {"Scheduled", "Completed", "Cancelled", "No-show"}:
+        flash("❌ Invalid appointment status.", "error")
+        return redirect(url_for("appointments"))
+    conn = get_db(); cur = conn.cursor()
+    try:
+        if session.get('role') == 'doctor':
+            cur.execute(
+                "UPDATE appointments SET status=%s WHERE appointment_id=%s AND doctor_id=%s",
+                (status, aid, session.get('doctor_id')),
+            )
+        else:
+            cur.execute("UPDATE appointments SET status=%s WHERE appointment_id=%s", (status, aid))
+        conn.commit()
+        log_action(f"Updated appointment ID {aid} status to {status}")
+        flash(f"Appointment marked as {status}.", "success")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"❌ Could not update appointment: {e}", "error")
+    finally:
+        cur.close(); conn.close()
     return redirect(url_for("appointments"))
 
 
@@ -790,19 +1029,38 @@ def dispense_medicine(prescription_id, medicine_id):
 @role_required('admin', 'receptionist')
 def billing():
     conn = get_db(); cur = conn.cursor(cursor_factory=RealDictCursor)
+    status_filter = request.args.get("status", "").strip()
+    where_sql = ""
+    params = []
+    if status_filter in {"Paid", "Pending"}:
+        where_sql = " WHERE b.payment_status = %s"
+        params.append(status_filter)
+    cur.execute("SELECT COUNT(*) AS total FROM billing b" + where_sql, tuple(params))
+    total = cur.fetchone()["total"]
+    page, per_page, total_pages, offset = get_pagination(total)
     cur.execute(
         """SELECT b.*, p.first_name || ' ' || p.last_name AS patient_name
            FROM billing b JOIN patients p ON b.patient_id = p.patient_id
-           ORDER BY b.bill_id DESC"""
+           """ + where_sql + """ ORDER BY b.bill_id DESC LIMIT %s OFFSET %s""",
+        tuple(params + [per_page, offset]),
     )
     data = cur.fetchall(); cur.close(); conn.close()
-    return render_template("billing.html", bills=data)
+    return render_template("billing.html", bills=data, status_filter=status_filter,
+                           page=page, total_pages=total_pages, total=total)
 
 
 @app.route("/billing/add", methods=["POST"])
 @role_required('admin', 'receptionist')
 def add_bill():
     f = request.form
+    try:
+        amount = float(f['total_amount'])
+    except (TypeError, ValueError):
+        flash("❌ Enter a valid invoice amount.", "error")
+        return redirect(url_for("billing"))
+    if amount < 0 or f['payment_status'] not in {'Paid', 'Pending'}:
+        flash("❌ Enter a valid amount and payment status.", "error")
+        return redirect(url_for("billing"))
     conn = get_db(); cur = conn.cursor()
     try:
         cur.execute(
@@ -822,6 +1080,52 @@ def add_bill():
     finally:
         cur.close(); conn.close()
 
+    return redirect(url_for("billing"))
+
+
+@app.route("/billing/update/<int:bid>", methods=["POST"])
+@role_required('admin', 'receptionist')
+def update_bill(bid):
+    f = request.form
+    try:
+        amount = float(f['total_amount'])
+    except (TypeError, ValueError):
+        flash("❌ Enter a valid invoice amount.", "error")
+        return redirect(url_for("billing"))
+    if amount < 0 or f['payment_status'] not in {'Paid', 'Pending'}:
+        flash("❌ Enter a valid amount and payment status.", "error")
+        return redirect(url_for("billing"))
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute(
+            "UPDATE billing SET total_amount=%s, payment_status=%s WHERE bill_id=%s",
+            (amount, f['payment_status'], bid),
+        )
+        conn.commit()
+        log_action(f"Updated bill ID {bid} to {f['payment_status']}")
+        flash("Invoice updated successfully!", "success")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"❌ Could not update invoice: {e}", "error")
+    finally:
+        cur.close(); conn.close()
+    return redirect(url_for("billing"))
+
+
+@app.route("/billing/delete/<int:bid>", methods=["POST"])
+@role_required('admin')
+def delete_bill(bid):
+    conn = get_db(); cur = conn.cursor()
+    try:
+        cur.execute("DELETE FROM billing WHERE bill_id=%s", (bid,))
+        conn.commit()
+        log_action(f"Deleted bill ID {bid}")
+        flash("Invoice deleted.", "success")
+    except psycopg2.Error as e:
+        conn.rollback()
+        flash(f"❌ Could not delete invoice: {e}", "error")
+    finally:
+        cur.close(); conn.close()
     return redirect(url_for("billing"))
 
 
@@ -1107,6 +1411,21 @@ def login():
                 session['patient_id'] = user['patient_id']
                 flash(f"Welcome back, {user['full_name']}! 👋", "success")
                 return redirect(url_for('patient_dashboard'))
+            if user['role'] == 'doctor':
+                doctor_conn = get_db()
+                cur_check = doctor_conn.cursor(cursor_factory=RealDictCursor)
+                cur_check.execute(
+                    """SELECT doctor_id FROM doctors
+                       WHERE first_name || ' ' || last_name = %s
+                       LIMIT 1""",
+                    (user['full_name'],),
+                )
+                doctor = cur_check.fetchone()
+                cur_check.close(); doctor_conn.close()
+                if doctor:
+                    session['doctor_id'] = doctor['doctor_id']
+                flash(f"Welcome, {user['full_name']}! 👋", "success")
+                return redirect(url_for('doctor_dashboard'))
             else:
                 flash(f"Welcome, {user['full_name']}! 👋", "success")
                 return redirect(url_for('index'))
@@ -1121,6 +1440,69 @@ def logout():
     session.clear()
     flash("You have been logged out.", "success")
     return redirect(url_for('login'))
+
+
+@app.route('/account/change-password', methods=['POST'])
+@role_required('admin', 'doctor', 'receptionist', 'pharmacist', 'labtech', 'patient')
+def change_password():
+    current_password = request.form.get('current_password', '')
+    new_password = request.form.get('new_password', '')
+    confirm_password = request.form.get('confirm_password', '')
+    if len(new_password) < 8:
+        flash("❌ New password must be at least 8 characters long.", "error")
+        return redirect(request.referrer or url_for('index'))
+    if new_password != confirm_password:
+        flash("❌ New passwords do not match.", "error")
+        return redirect(request.referrer or url_for('index'))
+    conn = get_db(); cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute("SELECT password_hash FROM users WHERE user_id=%s", (session['user_id'],))
+    user = cur.fetchone()
+    if not user or not check_password_hash(user['password_hash'], current_password):
+        cur.close(); conn.close()
+        flash("❌ Current password is incorrect.", "error")
+        return redirect(request.referrer or url_for('index'))
+    cur.execute("UPDATE users SET password_hash=%s WHERE user_id=%s",
+                (generate_password_hash(new_password), session['user_id']))
+    conn.commit(); cur.close(); conn.close()
+    log_action("Changed account password")
+    flash("Password changed successfully!", "success")
+    return redirect(request.referrer or url_for('index'))
+
+
+@app.route('/admin/users/reset-password/<int:user_id>', methods=['POST'])
+@role_required('admin')
+def reset_user_password(user_id):
+    new_password = request.form.get('new_password', '')
+    confirm_password = request.form.get('confirm_password', '')
+    if len(new_password) < 8:
+        flash("❌ Password must be at least 8 characters long.", "error")
+        return redirect(url_for('admin_users'))
+    if new_password != confirm_password:
+        flash("❌ Passwords do not match.", "error")
+        return redirect(url_for('admin_users'))
+    conn = get_db(); cur = conn.cursor()
+    cur.execute("UPDATE users SET password_hash=%s WHERE user_id=%s",
+                (generate_password_hash(new_password), user_id))
+    if cur.rowcount == 0:
+        conn.rollback()
+        flash("❌ User not found.", "error")
+    else:
+        conn.commit()
+        log_action(f"Reset password for user ID {user_id}")
+        flash("Password reset successfully.", "success")
+    cur.close(); conn.close()
+    return redirect(url_for('admin_users'))
+
+
+@app.route('/admin/users')
+@role_required('admin')
+def admin_users():
+    conn = get_db(); cur = conn.cursor(cursor_factory=RealDictCursor)
+    cur.execute(
+        "SELECT user_id, username, full_name, role FROM users ORDER BY role, full_name"
+    )
+    users = cur.fetchall(); cur.close(); conn.close()
+    return render_template("admin_users.html", users=users)
 
 
 @app.route('/register', methods=['GET', 'POST'])

@@ -100,11 +100,12 @@
           ('/billing', 'receipt', 'Billing'),
           ('/staff', 'briefcase-business', 'Staff'),
           ('/admin/dashboard', 'bar-chart-3', 'Admin Analytics'),
-          ('/admin/logs', 'clipboard-list', 'Audit Logs')
+          ('/admin/logs', 'clipboard-list', 'Audit Logs'),
+          ('/admin/users', 'key-round', 'User Passwords')
         ] %}
       {% elif current_role == 'doctor' %}
         {% set nav_items = [
-          ('/', 'layout-grid', 'Dashboard'),
+          ('/doctor/dashboard', 'layout-grid', 'My Dashboard'),
           ('/patients', 'users', 'Patients'),
           ('/doctors', 'stethoscope', 'Doctors'),
           ('/appointments', 'calendar-days', 'Appointments'),
@@ -175,6 +176,9 @@
           <button class="icon-button" aria-label="Notifications">
             <i data-lucide="bell"></i>
           </button>
+          <button type="button" class="icon-button" aria-label="Change password" title="Change password" data-modal-open="#changePasswordModal">
+            <i data-lucide="key-round"></i>
+          </button>
           <div class="topbar__user-menu">
             <div class="menu-avatar">{{ session.get('full_name', 'U')[:1] | upper }}</div>
             <div>
@@ -215,6 +219,24 @@
       </div>
     </section>
   </div>
+
+  {% if session.get('user_id') %}
+  <div class="modal-backdrop" id="changePasswordModal" data-modal hidden>
+    <section class="panel modal-card" role="dialog" aria-modal="true" aria-labelledby="change-password-title">
+      <div class="modal-card__head">
+        <div><span class="eyebrow">Account security</span><h2 id="change-password-title">Change password</h2></div>
+        <button type="button" class="modal-close" aria-label="Close password form" data-modal-close>&times;</button>
+      </div>
+      <form method="POST" action="/account/change-password" class="form-grid" data-loading>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group full"><label for="current-password">Current password</label><input id="current-password" name="current_password" type="password" minlength="1" required></div>
+        <div class="form-group"><label for="new-password">New password</label><input id="new-password" name="new_password" type="password" minlength="8" required></div>
+        <div class="form-group"><label for="confirm-password">Confirm password</label><input id="confirm-password" name="confirm_password" type="password" minlength="8" required></div>
+        <div class="form-group" style="justify-content:flex-end"><button type="button" class="btn btn-secondary" data-modal-close>Cancel</button><button type="submit" class="btn btn-primary">Update password</button></div>
+      </form>
+    </section>
+  </div>
+  {% endif %}
 
   <script>
     document.addEventListener('DOMContentLoaded', function () {

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}User Passwords | HMS Care{% endblock %}
+{% block page_title %}User password reset{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Administratively reset account passwords</p>{% endblock %}
+
+{% block content %}
+<section class="table-card">
+  <div class="table-wrap"><table><thead><tr><th>User</th><th>Username</th><th>Role</th><th>Reset password</th></tr></thead><tbody>
+    {% for u in users %}
+    <tr>
+      <td><strong>{{ u.full_name }}</strong></td>
+      <td>{{ u.username }}</td>
+      <td>{{ u.role|title }}</td>
+      <td>
+        <form method="POST" action="/admin/users/reset-password/{{ u.user_id }}" class="table-action" data-loading>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <input name="new_password" type="password" minlength="8" placeholder="New password" required>
+          <input name="confirm_password" type="password" minlength="8" placeholder="Confirm" required>
+          <button type="submit" class="btn btn-secondary">Reset</button>
+        </form>
+      </td>
+    </tr>
+    {% else %}
+    <tr><td class="empty-state-cell" colspan="4">{{ empty_state('key-round', 'No users', 'No system users found.') }}</td></tr>
+    {% endfor %}
+  </tbody></table></div>
+</section>
+{% endblock %}
