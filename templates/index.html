@@ -1,48 +1,149 @@
 {% extends "base.html" %}
-{% block title %}Dashboard | HMS Care{% endblock %}
-{% block page_title %}Dashboard{% endblock %}
-{% block page_subtitle %}<p class="page-subtitle">A clear view of today’s hospital operations</p>{% endblock %}
+{% block title %}Operations overview | HMS Care{% endblock %}
+{% block page_title %}Operations overview{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">A clear view of your hospital workspace</p>{% endblock %}
+
+{% macro dashboard_metric(href, icon, tone, label, value, footer, alert=False) %}
+  {% if href %}<a class="dashboard-metric{% if alert %} dashboard-metric--alert{% endif %}" href="{{ href }}">{% else %}<div class="dashboard-metric dashboard-metric--static">{% endif %}
+    <span class="dashboard-metric__icon tone-{{ tone }}"><i data-lucide="{{ icon }}" aria-hidden="true"></i></span>
+    <span class="dashboard-metric__label">{{ label }}</span>
+    <strong class="dashboard-metric__value">{{ value }}</strong>
+    <span class="dashboard-metric__footer">{{ footer }}{% if href %} <i data-lucide="arrow-up-right" aria-hidden="true"></i>{% endif %}</span>
+  {% if href %}</a>{% else %}</div>{% endif %}
+{% endmacro %}
 
 {% block content %}
-<div class="stat-grid">
-  {{ stat_card('users', patients, 'Total patients', href='/patients') }}
-  {{ stat_card('stethoscope', doctors, 'Medical team', href='/doctors') }}
-  {{ stat_card('calendar-days', appts, 'Appointments', href='/appointments') }}
-  {{ stat_card('package', low, 'Low-stock items', href='/inventory', tone='warning' if low > 0 else 'success') }}
-</div>
-
-<section class="panel section-card">
-  <div class="section-head">
-    <div>
-      <h2>Quick access</h2>
-      <p class="inline-note">Open the tools relevant to your role</p>
+<div class="dashboard-page">
+  <section class="dashboard-hero">
+    <div class="dashboard-hero__copy">
+      <span class="dashboard-kicker"><i data-lucide="sparkles" aria-hidden="true"></i> HMS CARE WORKSPACE</span>
+      <h2>Welcome back, {{ session.get('full_name', 'Team') }}</h2>
+      <p>Keep care delivery and daily operations moving from one connected workspace.</p>
     </div>
-  </div>
-  <div class="card-grid">
-    {% if session.get('role') in ['admin', 'doctor', 'receptionist'] %}
-    <a href="/patients" class="prescription-card">
-      <div class="stat-card__icon"><i data-lucide="users"></i></div>
-      <h3>Patient records</h3><p class="inline-note">Browse and manage patient information</p>
-    </a>
-    {% endif %}
-    {% if session.get('role') in ['admin', 'doctor', 'receptionist'] %}
-    <a href="/appointments" class="prescription-card">
-      <div class="stat-card__icon"><i data-lucide="calendar-days"></i></div>
-      <h3>Appointments</h3><p class="inline-note">Review schedules and visits</p>
-    </a>
-    {% endif %}
-    {% if session.get('role') in ['admin', 'pharmacist'] %}
-    <a href="/pharmacy" class="prescription-card">
-      <div class="stat-card__icon"><i data-lucide="pill"></i></div>
-      <h3>Pharmacy</h3><p class="inline-note">Review pending prescriptions</p>
-    </a>
-    {% endif %}
-    {% if session.get('role') in ['admin', 'doctor', 'labtech'] %}
-    <a href="/lab" class="prescription-card">
-      <div class="stat-card__icon"><i data-lucide="flask-conical"></i></div>
-      <h3>Laboratory</h3><p class="inline-note">Review tests and results</p>
-    </a>
-    {% endif %}
-  </div>
-</section>
+    <div class="dashboard-hero__aside">
+      <div class="dashboard-hero__icon"><i data-lucide="heart-pulse" aria-hidden="true"></i></div>
+      <span>Care, connected.</span>
+    </div>
+  </section>
+
+  <section class="dashboard-metrics" aria-label="Hospital overview">
+    {{ dashboard_metric('/patients' if session.get('role') in ['admin', 'doctor', 'receptionist'] else None, 'users', 'teal', 'Registered patients', patients, 'Patient directory') }}
+    {{ dashboard_metric('/doctors', 'stethoscope', 'blue', 'Medical team', doctors, 'Doctor directory') }}
+    {{ dashboard_metric('/appointments' if session.get('role') in ['admin', 'doctor', 'receptionist'] else None, 'calendar-days', 'violet', 'Appointments', appts, 'Appointment schedule') }}
+    {{ dashboard_metric('/inventory' if session.get('role') in ['admin', 'pharmacist'] else None, 'package-search', 'amber', 'Low-stock items', low, 'Needs attention' if low > 0 else 'Stock looks healthy', low > 0) }}
+  </section>
+
+  <section class="dashboard-section">
+    <div class="dashboard-section__heading">
+      <div>
+        <span class="dashboard-kicker">YOUR WORKSPACE</span>
+        <h2>Quick access</h2>
+        <p>Jump directly into the tools you use most.</p>
+      </div>
+    </div>
+    <div class="dashboard-shortcuts">
+      {% if session.get('role') in ['admin', 'doctor', 'receptionist'] %}
+      <a href="/patients" class="dashboard-shortcut">
+        <span class="dashboard-shortcut__icon tone-teal"><i data-lucide="contact-round" aria-hidden="true"></i></span>
+        <span><strong>Patient records</strong><small>Browse patient information</small></span>
+        <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+      </a>
+      {% endif %}
+      {% if session.get('role') in ['admin', 'doctor', 'receptionist'] %}
+      <a href="/appointments" class="dashboard-shortcut">
+        <span class="dashboard-shortcut__icon tone-violet"><i data-lucide="calendar-check-2" aria-hidden="true"></i></span>
+        <span><strong>Appointments</strong><small>Review the visit schedule</small></span>
+        <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+      </a>
+      {% endif %}
+      {% if session.get('role') in ['admin', 'pharmacist'] %}
+      <a href="/pharmacy" class="dashboard-shortcut">
+        <span class="dashboard-shortcut__icon tone-blue"><i data-lucide="pill" aria-hidden="true"></i></span>
+        <span><strong>Pharmacy</strong><small>Review prescriptions and stock</small></span>
+        <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+      </a>
+      {% endif %}
+      {% if session.get('role') in ['admin', 'doctor', 'labtech'] %}
+      <a href="/lab" class="dashboard-shortcut">
+        <span class="dashboard-shortcut__icon tone-amber"><i data-lucide="flask-conical" aria-hidden="true"></i></span>
+        <span><strong>Laboratory</strong><small>Manage tests and results</small></span>
+        <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+      </a>
+      {% endif %}
+      {% if session.get('role') in ['admin', 'receptionist'] %}
+      <a href="/billing" class="dashboard-shortcut">
+        <span class="dashboard-shortcut__icon tone-green"><i data-lucide="receipt-text" aria-hidden="true"></i></span>
+        <span><strong>Billing</strong><small>Review patient invoices</small></span>
+        <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+      </a>
+      {% endif %}
+      {% if session.get('role') in ['admin', 'receptionist'] %}
+      <a href="/rooms" class="dashboard-shortcut">
+        <span class="dashboard-shortcut__icon tone-rose"><i data-lucide="bed-double" aria-hidden="true"></i></span>
+        <span><strong>Rooms</strong><small>View room availability</small></span>
+        <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+      </a>
+      {% endif %}
+      {% if session.get('role') == 'admin' %}
+      <a href="{{ url_for('finance.dashboard') }}" class="dashboard-shortcut">
+        <span class="dashboard-shortcut__icon tone-teal"><i data-lucide="wallet-cards" aria-hidden="true"></i></span>
+        <span><strong>Finance &amp; accounting</strong><small>Open branch ledger and journals</small></span>
+        <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+      </a>
+      {% endif %}
+      {% if session.get('role') == 'admin' %}
+      <a href="{{ url_for('branches.index') }}" class="dashboard-shortcut">
+        <span class="dashboard-shortcut__icon tone-blue"><i data-lucide="building-2" aria-hidden="true"></i></span>
+        <span><strong>Branch workspace</strong><small>Switch branches and manage access</small></span>
+        <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+      </a>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if session.get('role') == 'admin' %}
+  <section class="dashboard-section dashboard-erp-preview" aria-labelledby="erp-preview-title">
+    <div class="dashboard-section__heading">
+      <div>
+        <span class="dashboard-kicker">NEXT PHASE</span>
+        <h2 id="erp-preview-title">Enterprise modules</h2>
+        <p>These workspaces are being prepared and are not live yet.</p>
+      </div>
+      <span class="badge neutral">Design preview</span>
+    </div>
+    <div class="erp-module-grid">
+      <article class="erp-module-card">
+        <span class="dashboard-shortcut__icon tone-violet"><i data-lucide="users-round" aria-hidden="true"></i></span>
+        <span class="erp-module-card__status">Planned</span>
+        <h3>People &amp; payroll</h3>
+        <p>Employee records, attendance, leave and monthly payroll.</p>
+      </article>
+      <article class="erp-module-card">
+        <span class="dashboard-shortcut__icon tone-blue"><i data-lucide="truck" aria-hidden="true"></i></span>
+        <span class="erp-module-card__status">Planned</span>
+        <h3>Procurement</h3>
+        <p>Vendors, purchase requests, orders and goods receipts.</p>
+      </article>
+      <article class="erp-module-card">
+        <span class="dashboard-shortcut__icon tone-amber"><i data-lucide="building-2" aria-hidden="true"></i></span>
+        <span class="erp-module-card__status">Planned</span>
+        <h3>Assets &amp; branches</h3>
+        <p>Equipment register, maintenance and branch operations.</p>
+      </article>
+      <article class="erp-module-card">
+        <span class="dashboard-shortcut__icon tone-green"><i data-lucide="chart-no-axes-combined" aria-hidden="true"></i></span>
+        <span class="erp-module-card__status">Planned</span>
+        <h3>Reports &amp; insights</h3>
+        <p>Business intelligence, trends and exportable reports.</p>
+      </article>
+      <article class="erp-module-card">
+        <span class="dashboard-shortcut__icon tone-rose"><i data-lucide="shield-check" aria-hidden="true"></i></span>
+        <span class="erp-module-card__status">Planned</span>
+        <h3>Access &amp; security</h3>
+        <p>Role permissions, sessions and user administration.</p>
+      </article>
+    </div>
+  </section>
+  {% endif %}
+</div>
 {% endblock %}

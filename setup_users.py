@@ -25,6 +25,10 @@ users = [
     ('reception1', 'rec123',    'Fatima Receptionist', 'receptionist'),
     ('pharmacy1',  'pharm123',  'Ali Pharmacist',      'pharmacist'),
     ('labtech1',   'lab123',    'Sadia Lab Technician','labtech'),
+    ('accountant1','acct123',   'Demo Accountant',      'accountant'),
+    ('hrmanager1', 'hr123',     'Demo HR Manager',      'hr_manager'),
+    ('procure1',   'proc123',   'Demo Procurement Officer', 'procurement_officer'),
+    ('branchmgr1', 'branch123', 'Demo Branch Manager', 'branch_manager'),
 ]
 
 conn = psycopg2.connect(os.environ["DATABASE_URL"])
@@ -39,9 +43,16 @@ for username, password, full_name, role in users:
         ON CONFLICT (username) DO UPDATE
             SET password_hash = EXCLUDED.password_hash,
                 full_name     = EXCLUDED.full_name,
-                role          = EXCLUDED.role
+                role          = EXCLUDED.role,
+                is_active     = TRUE
         """,
         (username, hashed, full_name, role),
+    )
+    cur.execute(
+        """UPDATE user_sessions SET revoked_at = CURRENT_TIMESTAMP
+           WHERE user_id = (SELECT user_id FROM users WHERE username = %s)
+             AND revoked_at IS NULL""",
+        (username,),
     )
 
 conn.commit()

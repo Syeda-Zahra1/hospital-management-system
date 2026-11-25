@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state, badge %}
+{% block title %}Accounts receivable | HMS Care{% endblock %}
+{% block page_title %}Accounts receivable{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Create branch patient invoices, apply tax and record incoming payments</p>{% endblock %}
+{% block content %}
+{% if not branch %}
+  {{ empty_state('building-2', 'Branch access required', 'Assign your finance account to an active branch before opening invoices.') }}
+{% else %}
+<section class="form-card"><h2>Create a patient invoice</h2><form method="post" class="form-grid" data-loading>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="form-group"><label for="invoice-patient">Patient</label><select id="invoice-patient" name="patient_id" required><option value="">Select patient</option>{% for patient in patients %}<option value="{{ patient.patient_id }}">{{ patient.first_name }} {{ patient.last_name }}</option>{% endfor %}</select></div>
+<div class="form-group"><label for="invoice-subtotal">Subtotal</label><input id="invoice-subtotal" name="subtotal_amount" type="number" min="0" step="0.01" required></div>
+<div class="form-group"><label for="invoice-tax">Tax rate</label><select id="invoice-tax" name="tax_id"><option value="">No tax</option>{% for tax in taxes %}<option value="{{ tax.tax_id }}">{{ tax.tax_name }} · {{ tax.rate_percent }}%</option>{% endfor %}</select></div>
+<div class="form-group full"><span class="inline-note">Tax is calculated and stored when the invoice is created. Later tax-rate changes do not alter existing invoices.</span><button class="btn btn-primary" type="submit">Create invoice</button></div>
+</form></section>
+<section class="table-card" style="margin-top:24px">{% if invoices %}<div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Patient</th><th>Date</th><th>Amount</th><th>Recorded payments</th><th>Status</th><th>Record payment</th></tr></thead><tbody>
+{% for invoice in invoices %}<tr><td>{{ invoice.invoice_number or ('Bill #' ~ invoice.bill_id) }}</td><td>{{ invoice.patient_name }}</td><td>{{ invoice.bill_date }}</td><td>{{ invoice.total_amount }}</td><td>{{ invoice.paid_amount }}</td><td>{{ badge(invoice.payment_status|replace('_',' ')|title) }}</td><td>{% if invoice.payment_status not in ['Paid','Cancelled'] %}<form method="post" action="{{ url_for('finance.receive_payment', bill_id=invoice.bill_id) }}" class="action-row"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input aria-label="Payment amount" type="number" name="amount" min="0.01" step="0.01" placeholder="Amount" required><input aria-label="Payment date" type="date" name="payment_date" value="{{ today }}" required><select aria-label="Payment method" name="payment_method"><option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option><option value="card">Card</option><option value="cheque">Cheque</option><option value="other">Other</option></select><button class="btn btn-secondary" type="submit">Record</button></form>{% else %}—{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}{{ empty_state('receipt', 'No branch invoices', 'Create an invoice for a patient registered in this branch.') }}{% endif %}</section>
+{% if total_pages > 1 %}<div class="pagination"><span>Page {{ page }} of {{ total_pages }} · {{ total }} invoices</span>{% if page > 1 %}<a class="btn btn-secondary" href="?page={{ page - 1 }}">Previous</a>{% endif %}{% if page < total_pages %}<a class="btn btn-secondary" href="?page={{ page + 1 }}">Next</a>{% endif %}</div>{% endif %}
+{% endif %}
+{% endblock %}

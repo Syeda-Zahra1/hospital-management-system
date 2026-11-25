@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state %}
+{% block title %}Trial balance | HMS Care{% endblock %}
+{% block page_title %}Trial balance{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Posted journal balances for {{ branch.branch_name if branch else 'your active branch' }}</p>{% endblock %}
+{% block content %}
+{% if not branch %}
+  {{ empty_state('building-2', 'Branch access required', 'Assign your finance account to an active branch before running a trial balance.') }}
+{% else %}
+<section class="form-card"><form method="get" class="form-grid"><div class="form-group"><label for="trial-date">Balances through</label><input id="trial-date" type="date" name="as_of" value="{{ as_of }}" required></div><div class="form-group" style="justify-content:flex-end"><button class="btn btn-primary" type="submit">Run trial balance</button></div></form></section>
+<section class="table-card" style="margin-top:24px">{% if rows %}<div class="table-wrap"><table><thead><tr><th>Account code</th><th>Account</th><th>Type</th><th>Debits</th><th>Credits</th><th>Debit balance</th><th>Credit balance</th></tr></thead><tbody>
+{% for row in rows %}<tr><td>{{ row.account_code }}</td><td>{{ row.account_name }}</td><td>{{ row.account_type|title }}</td><td>{{ row.debits }}</td><td>{{ row.credits }}</td><td>{{ row.debit_balance }}</td><td>{{ row.credit_balance }}</td></tr>{% endfor %}
+<tr><th colspan="5">Posted journal totals through {{ as_of }}</th><th>{{ debit_total }}</th><th>{{ credit_total }}</th></tr>
+</tbody></table></div>{% else %}{{ empty_state('scale', 'No accounts to report', 'Add accounts to the chart of accounts for this branch.') }}{% endif %}</section>
+{% if total_pages > 1 %}<div class="pagination"><span>Page {{ page }} of {{ total_pages }} · {{ total }} accounts</span>{% if page > 1 %}<a class="btn btn-secondary" href="?as_of={{ as_of }}&page={{ page - 1 }}">Previous</a>{% endif %}{% if page < total_pages %}<a class="btn btn-secondary" href="?as_of={{ as_of }}&page={{ page + 1 }}">Next</a>{% endif %}</div>{% endif %}
+{% endif %}
+{% endblock %}

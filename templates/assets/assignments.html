@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state, badge %}
+{% block title %}Asset assignments | HMS Care{% endblock %}
+{% block page_title %}Asset assignments{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Assign equipment to employees or departments and track returns</p>{% endblock %}
+{% block content %}
+{% if not branch %}{{ empty_state('building-2', 'Branch access required', 'Select an active branch to manage assignments.') }}{% else %}
+<section class="form-card"><h2>Assign an asset</h2><form method="post" class="form-grid" data-loading>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="form-group"><label for="assign-asset">Asset</label><select id="assign-asset" name="asset_id" required><option value="">Select asset</option>{% for asset in assets %}<option value="{{ asset.asset_id }}">{{ asset.asset_tag }} · {{ asset.asset_name }}</option>{% endfor %}</select></div>
+<div class="form-group"><label for="assign-staff">Staff member (optional)</label><select id="assign-staff" name="staff_id"><option value="">No staff member</option>{% for person in staff %}<option value="{{ person.staff_id }}">{{ person.first_name }} {{ person.last_name }}</option>{% endfor %}</select></div>
+<div class="form-group"><label for="assign-dept">Department (optional)</label><select id="assign-dept" name="dept_id"><option value="">No department</option>{% for dept in departments %}<option value="{{ dept.dept_id }}">{{ dept.dept_name }}</option>{% endfor %}</select></div>
+<div class="form-group full"><span class="inline-note">Choose exactly one assignee: a staff member or a department.</span><button class="btn btn-primary" type="submit">Record assignment</button></div>
+</form></section>
+<section class="table-card" style="margin-top:24px">{% if assignments %}<div class="table-wrap"><table><thead><tr><th>Asset</th><th>Assigned to</th><th>Assigned</th><th>Returned</th><th>Status</th><th>Action</th></tr></thead><tbody>
+{% for row in assignments %}<tr><td>{{ row.asset_name }}<br><small>{{ row.asset_tag }}</small></td><td>{{ row.assigned_to or '—' }}</td><td>{{ row.assigned_at }}</td><td>{{ row.returned_at or '—' }}</td><td>{{ badge('Active' if not row.returned_at else 'Returned') }}</td><td>{% if not row.returned_at %}<form method="post" action="{{ url_for('assets.return_assignment', assignment_id=row.asset_assignment_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary" type="submit">Return</button></form>{% else %}—{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}{{ empty_state('users-round', 'No assignments', 'Current and returned asset assignments will appear here.') }}{% endif %}</section>
+{% endif %}
+{% endblock %}

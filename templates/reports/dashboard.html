@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% from "base.html" import stat_card, empty_state, badge %}
+{% block title %}Reports & Insights | HMS Care{% endblock %}
+{% block page_title %}Reports & Insights{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Branch-level operational and financial reporting</p>{% endblock %}
+{% block content %}
+<section class="form-card">
+  <form method="get" class="form-grid">
+    <div class="form-group"><label for="report-start">Start date</label><input id="report-start" type="date" name="start_date" value="{{ start_date }}" required></div>
+    <div class="form-group"><label for="report-end">End date</label><input id="report-end" type="date" name="end_date" value="{{ end_date }}" required></div>
+    <div class="form-group" style="justify-content:flex-end"><button class="btn btn-primary" type="submit">Apply date range</button></div>
+  </form>
+</section>
+{% if not branch %}
+  {{ empty_state('building-2', 'Branch access required', 'Assign your account to a branch to view branch-scoped reports.') }}
+{% else %}
+<section class="summary-grid" style="margin-top:24px">
+  {{ stat_card('user-round-plus', reports.patient_count, 'New patients') }}
+  {{ stat_card('calendar-days', reports.appointment_stats.appointment_count, 'Appointments') }}
+  {{ stat_card('calendar-check', reports.appointment_stats.completed_count, 'Completed appointments') }}
+  {{ stat_card('wallet-cards', reports.revenue.collected, 'Payments received') }}
+</section>
+<div class="action-row" style="margin:22px 0">
+  <a class="btn btn-secondary" href="{{ url_for('reports.export_csv', type='doctors', start_date=start_date, end_date=end_date) }}">Export doctor report</a>
+  <a class="btn btn-secondary" href="{{ url_for('reports.export_csv', type='demographics', start_date=start_date, end_date=end_date) }}">Export demographics</a>
+  <a class="btn btn-secondary" href="{{ url_for('reports.export_csv', type='profit-loss', start_date=start_date, end_date=end_date) }}">Export P&amp;L</a>
+  <a class="btn btn-secondary" href="{{ url_for('reports.export_csv', type='inventory', start_date=start_date, end_date=end_date) }}">Export stock levels</a>
+</div>
+<div class="form-grid">
+  <section class="table-card">
+    <div style="padding:18px 20px"><span class="eyebrow">Patient demographics</span><h2>New registrations by gender</h2></div>
+    {% if reports.demographics %}<div class="table-wrap"><table><thead><tr><th>Gender</th><th>Registrations</th></tr></thead><tbody>{% for item in reports.demographics %}<tr><td>{{ item.gender }}</td><td>{{ item.patient_count }}</td></tr>{% endfor %}</tbody></table></div><div style="padding:18px"><canvas id="demographicsChart" aria-label="Patient registration demographics"></canvas></div>{% else %}{{ empty_state('users-round', 'No demographic data', 'No new registrations in the selected date range.') }}{% endif %}
+  </section>
+  <section class="table-card">
+    <div style="padding:18px 20px"><span class="eyebrow">Financial summary</span><h2>Posted journal P&amp;L</h2></div>
+    <div class="table-wrap"><table><thead><tr><th>Type</th><th>Debits</th><th>Credits</th><th>Net</th></tr></thead><tbody>
+      {% for account_type in ['revenue', 'expense'] %}{% set row = reports.pnl.get(account_type) %}{% set debits = row.debits if row else 0 %}{% set credits = row.credits if row else 0 %}<tr><td>{{ account_type|title }}</td><td>{{ debits }}</td><td>{{ credits }}</td><td>{{ credits - debits if account_type == 'revenue' else debits - credits }}</td></tr>{% endfor %}
+      <tr><th colspan="3">Outstanding bills (billing status)</th><td>{{ reports.revenue.outstanding }}</td></tr>
+    </tbody></table></div>
+    <p class="inline-note" style="padding:14px 18px">This is an overall branch report. The current schema does not associate journal lines with departments, so department-wise P&amp;L is unavailable.</p>
+  </section>
+</div>
+<section class="table-card" style="margin-top:24px">
+  <div style="padding:18px 20px"><span class="eyebrow">Clinical operations</span><h2>Doctor appointment performance</h2></div>
+  {% if reports.doctors %}<div class="table-wrap"><table><thead><tr><th>Doctor</th><th>Appointments</th><th>Completed</th><th>Revenue</th></tr></thead><tbody>{% for doctor in reports.doctors %}<tr><td>{{ doctor.doctor_name }}</td><td>{{ doctor.appointment_count }}</td><td>{{ doctor.completed_count }}</td><td>Not attributed</td></tr>{% endfor %}</tbody></table></div><p class="inline-note" style="padding:14px 18px">Billing records are not linked to appointments in the deployed schema, so doctor-level revenue cannot be calculated reliably.</p>{% else %}{{ empty_state('stethoscope', 'No doctor activity', 'No appointments were found for this branch.') }}{% endif %}
+</section>
+<section class="table-card" style="margin-top:24px">
+  <div style="padding:18px 20px"><span class="eyebrow">Supply levels</span><h2>Inventory on hand</h2></div>
+  {% if reports.inventory %}<div class="table-wrap"><table><thead><tr><th>Medicine</th><th>On hand</th><th>Reorder point</th><th>Stock status</th></tr></thead><tbody>{% for item in reports.inventory %}<tr><td>{{ item.medicine_name }}</td><td>{{ item.on_hand }}</td><td>{{ item.reorder_point }}</td><td>{{ badge('Reorder' if item.on_hand <= item.reorder_point else 'In stock', 'warning' if item.on_hand <= item.reorder_point else 'success') }}</td></tr>{% endfor %}</tbody></table></div><p class="inline-note" style="padding:14px 18px">Inventory movement history is not available in the deployed schema, so turnover rates are not reported.</p>{% else %}{{ empty_state('package', 'No inventory records', 'No branch inventory was found.') }}{% endif %}
+</section>
+{% if session.get('role') == 'admin' %}
+<section class="form-card" style="margin-top:24px">
+  <h2>Schedule a report</h2><p class="inline-note">Schedules are stored, but this deployment has no background worker to deliver them.</p>
+  <form method="post" action="{{ url_for('reports.create_schedule') }}" class="form-grid"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group"><label for="schedule-type">Report</label><select id="schedule-type" name="report_type"><option value="doctors">Doctor performance</option><option value="demographics">Patient demographics</option><option value="inventory">Inventory levels</option><option value="profit-loss">Profit &amp; loss</option></select></div>
+    <div class="form-group"><label for="schedule-frequency">Frequency</label><select id="schedule-frequency" name="frequency"><option value="monthly">Monthly</option><option value="weekly">Weekly</option><option value="daily">Daily</option></select></div>
+    <div class="form-group" style="justify-content:flex-end"><button class="btn btn-primary" type="submit">Save schedule</button></div>
+  </form>
+  {% if schedules %}<div class="table-wrap" style="margin-top:20px"><table><thead><tr><th>Report</th><th>Frequency</th><th>Next run</th><th>Status</th><th></th></tr></thead><tbody>{% for schedule in schedules %}<tr><td>{{ schedule.report_type }}</td><td>{{ schedule.frequency|title }}</td><td>{{ schedule.next_run_at }}</td><td>{{ badge('Active' if schedule.is_active else 'Paused') }}</td><td><form method="post" action="{{ url_for('reports.toggle_schedule', schedule_id=schedule.report_schedule_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary" type="submit">{{ 'Pause' if schedule.is_active else 'Resume' }}</button></form></td></tr>{% endfor %}</tbody></table></div>{% endif %}
+</section>
+{% endif %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  const demographics = {{ reports.demographics|tojson }};
+  const canvas = document.getElementById('demographicsChart');
+  if (canvas && window.Chart) {
+    new Chart(canvas, {
+      type: 'doughnut',
+      data: { labels: demographics.map(item => item.gender), datasets: [{ data: demographics.map(item => item.patient_count), backgroundColor: ['#0f766e', '#38bdf8', '#818cf8', '#f59e0b'] }] },
+      options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+    });
+  }
+</script>
+{% endif %}
+{% endblock %}

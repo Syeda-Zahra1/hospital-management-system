@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state, badge %}
+{% block title %}Leave management | HMS Care{% endblock %}
+{% block page_title %}Leave management{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Submit requests and approve employee leave</p>{% endblock %}
+{% block content %}
+{% if not branch %}
+  {{ empty_state('building-2', 'Branch access required', 'Assign your HR account to an active branch to manage leave.') }}
+{% else %}
+<section class="form-card">
+  <h2>Submit a leave request</h2>
+  <form method="post" class="form-grid" data-loading>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group"><label for="leave-staff">Employee</label><select id="leave-staff" name="staff_id" required><option value="">Select employee</option>{% for employee in employees %}<option value="{{ employee.staff_id }}">{{ employee.first_name }} {{ employee.last_name }}</option>{% endfor %}</select></div>
+    <div class="form-group"><label for="leave-type">Leave type</label><select id="leave-type" name="leave_type"><option value="annual">Annual</option><option value="sick">Sick</option><option value="casual">Casual</option></select></div>
+    <div class="form-group"><label for="leave-start">Start date</label><input id="leave-start" type="date" name="start_date" required></div>
+    <div class="form-group"><label for="leave-end">End date</label><input id="leave-end" type="date" name="end_date" required></div>
+    <div class="form-group full"><label for="leave-reason">Reason</label><textarea id="leave-reason" name="reason" maxlength="1000" rows="3"></textarea></div>
+    <div class="form-group full"><button class="btn btn-primary" type="submit">Submit request</button></div>
+  </form>
+</section>
+<section class="table-card" style="margin-top:24px">
+  {% if leave_requests %}
+  <div class="table-wrap"><table><thead><tr><th>Employee</th><th>Type</th><th>Dates</th><th>Reason</th><th>Status</th><th>Action</th></tr></thead><tbody>
+  {% for row in leave_requests %}<tr><td>{{ row.first_name }} {{ row.last_name }}</td><td>{{ row.leave_type|title }}</td><td>{{ row.start_date }} – {{ row.end_date }}</td><td>{{ row.reason or '—' }}</td><td>{{ badge(row.status|title) }}</td><td>{% if row.status == 'submitted' %}<div class="action-row"><form method="post" action="{{ url_for('hr.update_leave', leave_id=row.leave_request_id, action='approve') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-primary" type="submit">Approve</button></form><form method="post" action="{{ url_for('hr.update_leave', leave_id=row.leave_request_id, action='reject') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary" type="submit">Reject</button></form></div>{% else %}—{% endif %}</td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}{{ empty_state('calendar-days', 'No leave requests', 'Requests submitted for this branch will appear here.') }}{% endif %}
+</section>
+{% if total_pages > 1 %}<div class="pagination"><span>Page {{ page }} of {{ total_pages }} · {{ total }} requests</span>{% if page > 1 %}<a class="btn btn-secondary" href="?page={{ page - 1 }}">Previous</a>{% endif %}{% if page < total_pages %}<a class="btn btn-secondary" href="?page={{ page + 1 }}">Next</a>{% endif %}</div>{% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "base.html" import badge %}
+{% block title %}Role permissions | HMS Care{% endblock %}
+{% block page_title %}Role permission matrix{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Control read and write access to ERP modules; route-level role checks remain in force</p>{% endblock %}
+{% block content %}
+<section class="form-card">
+<form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="table-wrap"><table><thead><tr><th>Role</th>{% for module in modules %}<th>{{ module|replace('_',' ')|title }}<br><small>Read · Write</small></th>{% endfor %}</tr></thead><tbody>
+{% for role in roles %}<tr><th scope="row">{{ role|replace('_',' ')|title }}</th>{% for module in modules %}<td><label class="checkbox-label" title="Allow read access"><input type="checkbox" name="{{ role }}:{{ module }}:read" {% if matrix.get((role,module,'read')) %}checked{% endif %} {% if role == 'admin' %}disabled{% endif %}> R</label><label class="checkbox-label" title="Allow write access"><input type="checkbox" name="{{ role }}:{{ module }}:write" {% if matrix.get((role,module,'write')) %}checked{% endif %} {% if role == 'admin' %}disabled{% endif %}> W</label>{% if role == 'admin' %}<input type="hidden" name="{{ role }}:{{ module }}:read" value="on"><input type="hidden" name="{{ role }}:{{ module }}:write" value="on">{% endif %}</td>{% endfor %}</tr>{% endfor %}
+</tbody></table></div>
+<p class="inline-note" style="margin:16px 0">Administrator access is fixed. A role must also be allowed by the corresponding route's role guard.</p>
+<button class="btn btn-primary" type="submit">Save permission matrix</button>
+</form></section>
+{% endblock %}

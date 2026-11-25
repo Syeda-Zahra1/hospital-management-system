@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "base.html" import stat_card, button_variant %}
+{% block title %}People & Payroll | HMS Care{% endblock %}
+{% block page_title %}People & Payroll{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Attendance, leave approvals and payroll for {{ branch.branch_name if branch else 'your branch' }}</p>{% endblock %}
+{% block content %}
+<section class="summary-grid">
+  {{ stat_card('users-round', stats.staff_count, 'Employees') }}
+  {{ stat_card('calendar-check', stats.present_today, 'Present today') }}
+  {{ stat_card('calendar-clock', stats.pending_leave, 'Pending leave') }}
+  {{ stat_card('wallet', stats.latest_payroll.total_net if stats.latest_payroll else '—', 'Latest payroll net') }}
+</section>
+<section class="panel" style="padding:24px;margin-top:24px">
+  <div class="section-heading"><div><span class="eyebrow">HR workspace</span><h2>Manage your team</h2></div></div>
+  <div class="action-row">
+    {{ button_variant('Employees', url_for('hr.employees'), icon='users-round') }}
+    {{ button_variant('Record attendance', url_for('hr.attendance'), icon='calendar-check') }}
+    {{ button_variant('Leave requests', url_for('hr.leave'), variant='secondary', icon='calendar-days') }}
+    {{ button_variant('Salary components', url_for('hr.salary_components'), variant='secondary', icon='wallet-cards') }}
+    {{ button_variant('Payroll runs', url_for('hr.payroll'), variant='secondary', icon='wallet') }}
+  </div>
+</section>
+{% endblock %}

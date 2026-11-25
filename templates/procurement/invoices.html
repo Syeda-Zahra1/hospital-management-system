@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state, badge %}
+{% block title %}Vendor invoices | HMS Care{% endblock %}
+{% block page_title %}Vendor invoices & payments{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Record supplier invoices and track outgoing payments</p>{% endblock %}
+{% block content %}
+{% if not branch %}<div class="panel" style="padding:24px">Select an active branch to manage vendor invoices.</div>{% else %}
+<section class="form-card"><h2>Record vendor invoice</h2><form method="post" class="form-grid" data-loading>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="form-group"><label for="invoice-vendor">Vendor</label><select id="invoice-vendor" name="vendor_id" required><option value="">Select vendor</option>{% for vendor in vendors %}<option value="{{ vendor.vendor_id }}">{{ vendor.vendor_name }}</option>{% endfor %}</select></div>
+<div class="form-group"><label for="invoice-number">Invoice number</label><input id="invoice-number" name="invoice_number" maxlength="80" required></div>
+<div class="form-group"><label for="invoice-date">Invoice date</label><input id="invoice-date" type="date" name="invoice_date" required></div>
+<div class="form-group"><label for="due-date">Due date</label><input id="due-date" type="date" name="due_date"></div>
+<div class="form-group"><label for="invoice-subtotal">Subtotal</label><input id="invoice-subtotal" type="number" name="subtotal_amount" min="0" step="0.01" required></div>
+<div class="form-group"><label for="invoice-tax">Tax</label><input id="invoice-tax" type="number" name="tax_amount" min="0" step="0.01" value="0" required></div>
+<div class="form-group full"><button class="btn btn-primary" type="submit">Save invoice</button></div>
+</form></section>
+<section class="table-card" style="margin-top:24px">{% if invoices %}<div class="table-wrap"><table><thead><tr><th>Invoice</th><th>Vendor</th><th>Dates</th><th>Total</th><th>Status</th><th>Record payment</th></tr></thead><tbody>
+{% for invoice in invoices %}<tr><td>{{ invoice.invoice_number }}</td><td>{{ invoice.vendor_name }}</td><td>{{ invoice.invoice_date }}<br><small>Due {{ invoice.due_date or '—' }}</small></td><td>{{ invoice.total_amount }}</td><td>{{ badge(invoice.status|replace('_',' ')|title) }}</td><td>{% if invoice.status not in ['paid','void'] %}<form method="post" action="{{ url_for('procurement.pay_invoice', invoice_id=invoice.vendor_invoice_id) }}" class="action-row"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input aria-label="Payment amount" type="number" name="amount" min="0.01" step="0.01" placeholder="Amount" required><input aria-label="Payment date" type="date" name="payment_date" required><select aria-label="Payment method" name="payment_method"><option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option><option value="card">Card</option><option value="cheque">Cheque</option><option value="other">Other</option></select><button class="btn btn-secondary" type="submit">Pay</button></form>{% else %}—{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}{{ empty_state('receipt', 'No vendor invoices', 'Record an invoice to track supplier payables.') }}{% endif %}</section>
+{% if total_pages > 1 %}<div class="pagination"><span>Page {{ page }} of {{ total_pages }} · {{ total }} invoices</span>{% if page > 1 %}<a class="btn btn-secondary" href="?page={{ page - 1 }}">Previous</a>{% endif %}{% if page < total_pages %}<a class="btn btn-secondary" href="?page={{ page + 1 }}">Next</a>{% endif %}</div>{% endif %}
+{% endif %}
+{% endblock %}

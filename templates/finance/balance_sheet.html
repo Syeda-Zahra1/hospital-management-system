@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state, stat_card %}
+{% block title %}Balance sheet | HMS Care{% endblock %}
+{% block page_title %}Balance sheet{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Posted asset, liability and equity balances through {{ as_of }}</p>{% endblock %}
+{% block content %}
+{% if not branch %}
+  {{ empty_state('building-2', 'Branch access required', 'Assign your finance account to an active branch before running a balance sheet.') }}
+{% else %}
+<section class="form-card"><form method="get" class="form-grid"><div class="form-group"><label for="balance-date">Balances through</label><input id="balance-date" type="date" name="as_of" value="{{ as_of }}" required></div><div class="form-group" style="justify-content:flex-end"><button class="btn btn-primary" type="submit">Run balance sheet</button></div></form></section>
+<section class="summary-grid" style="margin-top:24px">
+  {{ stat_card('landmark', totals.asset, 'Assets') }}
+  {{ stat_card('credit-card', totals.liability, 'Liabilities') }}
+  {{ stat_card('scale', totals.equity, 'Equity') }}
+</section>
+<section class="table-card" style="margin-top:24px">{% if rows %}<div class="table-wrap"><table><thead><tr><th>Code</th><th>Account</th><th>Type</th><th>Balance</th></tr></thead><tbody>
+{% for row in rows %}<tr><td>{{ row.account_code }}</td><td>{{ row.account_name }}</td><td>{{ row.account_type|title }}</td><td>{{ row.balance }}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}{{ empty_state('scale', 'No balance sheet accounts', 'Add asset, liability and equity accounts to the chart of accounts.') }}{% endif %}</section>
+{% if total_pages > 1 %}<div class="pagination"><span>Page {{ page }} of {{ total_pages }} · {{ total }} accounts</span>{% if page > 1 %}<a class="btn btn-secondary" href="?as_of={{ as_of }}&page={{ page - 1 }}">Previous</a>{% endif %}{% if page < total_pages %}<a class="btn btn-secondary" href="?as_of={{ as_of }}&page={{ page + 1 }}">Next</a>{% endif %}</div>{% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state %}
+{% block title %}Finance | HMS Care ERP{% endblock %}
+{% block page_title %}Finance &amp; accounting{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">A branch-scoped view of your accounting workspace</p>{% endblock %}
+
+{% block content %}
+{% if not branch %}
+<section class="panel section-card">
+  {{ empty_state('building-2', 'Branch access is needed', 'Ask an administrator to create a branch and assign your account before opening financial records.', 'Open branch setup' if session.get('role') == 'admin' else None, url_for('branches.index') if session.get('role') == 'admin' else None) }}
+</section>
+{% else %}
+<section class="dashboard-hero finance-hero">
+  <div class="dashboard-hero__copy">
+    <span class="dashboard-kicker"><i data-lucide="wallet-cards" aria-hidden="true"></i> FINANCE WORKSPACE</span>
+    <h2>{{ branch.branch_name }}</h2>
+    <p>Review your chart of accounts and draft journal activity for this branch.</p>
+  </div>
+  <div class="dashboard-hero__aside">
+    <div class="dashboard-hero__icon"><i data-lucide="landmark" aria-hidden="true"></i></div>
+    <span>Branch-scoped ledger</span>
+  </div>
+</section>
+
+<section class="dashboard-metrics finance-metrics" aria-label="Finance overview">
+  <div class="dashboard-metric dashboard-metric--static">
+    <span class="dashboard-metric__icon tone-teal"><i data-lucide="layers-3" aria-hidden="true"></i></span>
+    <span class="dashboard-metric__label">Asset accounts</span>
+    <strong class="dashboard-metric__value">{{ account_counts.asset_accounts }}</strong>
+    <span class="dashboard-metric__footer">Chart of accounts</span>
+  </div>
+  <div class="dashboard-metric dashboard-metric--static">
+    <span class="dashboard-metric__icon tone-blue"><i data-lucide="scale" aria-hidden="true"></i></span>
+    <span class="dashboard-metric__label">Liability accounts</span>
+    <strong class="dashboard-metric__value">{{ account_counts.liability_accounts }}</strong>
+    <span class="dashboard-metric__footer">Chart of accounts</span>
+  </div>
+  <div class="dashboard-metric dashboard-metric--static">
+    <span class="dashboard-metric__icon tone-violet"><i data-lucide="chart-no-axes-column-increasing" aria-hidden="true"></i></span>
+    <span class="dashboard-metric__label">Revenue accounts</span>
+    <strong class="dashboard-metric__value">{{ account_counts.revenue_accounts }}</strong>
+    <span class="dashboard-metric__footer">Chart of accounts</span>
+  </div>
+  <div class="dashboard-metric dashboard-metric--static">
+    <span class="dashboard-metric__icon tone-amber"><i data-lucide="file-clock" aria-hidden="true"></i></span>
+    <span class="dashboard-metric__label">Draft journals</span>
+    <strong class="dashboard-metric__value">{{ draft_count }}</strong>
+    <span class="dashboard-metric__footer">Awaiting review</span>
+  </div>
+</section>
+
+<section class="dashboard-section">
+  <div class="dashboard-section__heading">
+    <div><span class="dashboard-kicker">ACCOUNTING</span><h2>Finance tools</h2><p>Manage accounts and review balanced journal entries.</p></div>
+  </div>
+  <div class="dashboard-shortcuts">
+    <a href="{{ url_for('finance.accounts') }}" class="dashboard-shortcut">
+      <span class="dashboard-shortcut__icon tone-teal"><i data-lucide="list-tree" aria-hidden="true"></i></span>
+      <span><strong>Chart of accounts</strong><small>View and add ledger accounts</small></span>
+      <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+    </a>
+    <a href="{{ url_for('finance.journals') }}" class="dashboard-shortcut">
+      <span class="dashboard-shortcut__icon tone-violet"><i data-lucide="book-open-check" aria-hidden="true"></i></span>
+      <span><strong>Journal entries</strong><small>Create drafts and post balanced entries</small></span>
+      <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+    </a>
+    <a href="{{ url_for('finance.receivables') }}" class="dashboard-shortcut">
+      <span class="dashboard-shortcut__icon tone-blue"><i data-lucide="receipt" aria-hidden="true"></i></span>
+      <span><strong>Accounts receivable</strong><small>Create patient invoices and record payments</small></span>
+      <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+    </a>
+    <a href="{{ url_for('finance.taxes') }}" class="dashboard-shortcut">
+      <span class="dashboard-shortcut__icon tone-amber"><i data-lucide="percent" aria-hidden="true"></i></span>
+      <span><strong>Tax management</strong><small>Configure tax rates for new invoices</small></span>
+      <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+    </a>
+    <a href="{{ url_for('finance.trial_balance') }}" class="dashboard-shortcut">
+      <span class="dashboard-shortcut__icon tone-violet"><i data-lucide="scale" aria-hidden="true"></i></span>
+      <span><strong>Trial balance</strong><small>Review posted account balances</small></span>
+      <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+    </a>
+    <a href="{{ url_for('finance.balance_sheet') }}" class="dashboard-shortcut">
+      <span class="dashboard-shortcut__icon tone-blue"><i data-lucide="landmark" aria-hidden="true"></i></span>
+      <span><strong>Balance sheet</strong><small>Review assets, liabilities and equity</small></span>
+      <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+    </a>
+    {% if session.get('role') in ['admin', 'branch_manager'] %}
+    <a href="{{ url_for('branches.index') }}" class="dashboard-shortcut">
+      <span class="dashboard-shortcut__icon tone-blue"><i data-lucide="building-2" aria-hidden="true"></i></span>
+      <span><strong>Branch workspace</strong><small>Switch to another assigned branch</small></span>
+      <i class="dashboard-shortcut__arrow" data-lucide="arrow-up-right" aria-hidden="true"></i>
+    </a>
+    {% endif %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -6,7 +6,7 @@ import re
 import secrets
 import threading
 import time
-from datetime import date
+from datetime import date, timedelta
 from functools import wraps
 
 from dotenv import load_dotenv
@@ -23,9 +23,18 @@ load_dotenv()
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from chatbot_kb import KNOWLEDGE_BASE
+from erp_common import active_branch, current_session_hash, db_cursor, role_required
+from blueprints.branches import branches_bp
+from blueprints.assets import assets_bp
+from blueprints.finance import finance_bp
+from blueprints.hr import hr_bp
+from blueprints.procurement import procurement_bp
+from blueprints.reports import reports_bp
+from blueprints.user_mgmt import user_mgmt_bp
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or secrets.token_hex(32)
+app.permanent_session_lifetime = timedelta(days=30)
 csrf = CSRFProtect(app)
 
 logger = logging.getLogger("hms.chatbot")
@@ -163,8 +172,14 @@ def log_action(action):
     if 'username' in session:
         conn = get_db(); cur = conn.cursor()
         cur.execute(
-            "INSERT INTO audit_logs (user_id, username, action) VALUES (%s, %s, %s)",
-            (session.get('user_id'), session.get('username'), action),
+            """INSERT INTO audit_logs
+                   (user_id, username, action, ip_address, user_agent, branch_id)
+               VALUES (%s, %s, %s, %s::inet, %s, %s)""",
+            (
+                session.get('user_id'), session.get('username'), action,
+                request.remote_addr, request.headers.get("User-Agent", "")[:1000],
+                session.get("branch_id"),
+            ),
         )
         conn.commit(); cur.close(); conn.close()
 
@@ -180,28 +195,68 @@ def login_required(f):
     return wrapper
 
 
-def role_required(*allowed_roles):
-    def decorator(f):
-        @wraps(f)
-        def wrapper(*args, **kwargs):
-            if 'user_id' not in session:
-                if request.path == "/api/chat":
-                    return jsonify(error="Authentication required."), 401
-                flash("Please login first.", "error")
-                return redirect(url_for('login'))
-            if session.get('role') not in allowed_roles:
-                if request.path == "/api/chat":
-                    return jsonify(error="You are not authorized to use this service."), 403
-                flash("⛔ Access Denied — You are not authorized.", "error")
-                return redirect(url_for('index'))
-            return f(*args, **kwargs)
-        return wrapper
-    return decorator
-
-
 # Database connection
 def get_db():
     return psycopg2.connect(os.environ["DATABASE_URL"])
+
+
+def _create_erp_session(cur, user_id, branch_id=None):
+    token = secrets.token_urlsafe(32)
+    cur.execute(
+        """INSERT INTO user_sessions
+               (user_id, session_token_hash, branch_id, ip_address,
+                user_agent, expires_at)
+           VALUES (%s, %s, %s, %s::inet, %s,
+                   CURRENT_TIMESTAMP + INTERVAL '30 days')""",
+        (
+            user_id,
+            hashlib.sha256(token.encode("utf-8")).hexdigest(),
+            branch_id,
+            request.remote_addr,
+            request.headers.get("User-Agent", "")[:1000],
+        ),
+    )
+    return token
+
+
+@app.before_request
+def validate_erp_session():
+    if "user_id" not in session or not session.get("erp_session_token") or request.endpoint == "static":
+        return None
+
+    token_hash = current_session_hash()
+    try:
+        with db_cursor() as cur:
+            cur.execute(
+                """SELECT u.is_active, s.branch_id, b.branch_name
+                   FROM user_sessions s
+                   JOIN users u ON u.user_id = s.user_id
+                   LEFT JOIN branches b ON b.branch_id = s.branch_id AND b.is_active = TRUE
+                   LEFT JOIN user_branch_access uba
+                     ON uba.user_id = s.user_id AND uba.branch_id = s.branch_id
+                   WHERE s.session_token_hash = %s AND s.user_id = %s
+                     AND s.revoked_at IS NULL AND s.expires_at > CURRENT_TIMESTAMP
+                     AND (s.branch_id IS NULL OR (b.branch_id IS NOT NULL AND uba.user_id IS NOT NULL))""",
+                (token_hash, session["user_id"]),
+            )
+            current = cur.fetchone()
+            if not current or not current["is_active"]:
+                session.clear()
+                flash("Your account or session is no longer active. Please sign in again.", "error")
+                return redirect(url_for("login"))
+            cur.execute(
+                """UPDATE user_sessions SET last_seen_at = CURRENT_TIMESTAMP
+                   WHERE session_token_hash = %s AND user_id = %s""",
+                (token_hash, session["user_id"]),
+            )
+            cur.connection.commit()
+        if current["branch_id"] is not None:
+            session["branch_id"] = current["branch_id"]
+            session["branch_name"] = current["branch_name"]
+    except psycopg2.Error:
+        app.logger.exception("Unable to validate ERP session")
+        return "Session could not be verified. Please try again.", 503
+    return None
 
 
 def get_pagination(total, per_page=10):
@@ -359,8 +414,19 @@ def api_chat():
 
 # ---------- HOME / DASHBOARD ----------
 @app.route("/")
-@role_required('admin', 'doctor', 'receptionist', 'pharmacist', 'labtech', 'patient')
+@role_required(
+    'admin', 'doctor', 'receptionist', 'pharmacist', 'labtech', 'patient',
+    'accountant', 'hr_manager', 'procurement_officer', 'branch_manager',
+)
 def index():
+    if session.get('role') == 'accountant':
+        return redirect(url_for('finance.dashboard'))
+    if session.get('role') == 'branch_manager':
+        return redirect(url_for('branches.index'))
+    if session.get("role") == "hr_manager":
+        return redirect(url_for("hr.dashboard"))
+    if session.get("role") == "procurement_officer":
+        return redirect(url_for("procurement.dashboard"))
     if session.get('role') == 'patient':
         return redirect(url_for('patient_dashboard'))
     if session.get('role') == 'doctor':
@@ -1400,13 +1466,44 @@ def login():
         user = cur.fetchone()
         cur.close(); conn.close()
 
-        if user and check_password_hash(user['password_hash'], password):
+        if user and user.get("is_active", True) and check_password_hash(user['password_hash'], password):
+            try:
+                with db_cursor() as erp_cur:
+                    branch = active_branch(erp_cur, user["user_id"])
+                    token = _create_erp_session(
+                        erp_cur,
+                        user["user_id"],
+                        branch["branch_id"] if branch else None,
+                    )
+                    erp_cur.connection.commit()
+            except psycopg2.Error:
+                app.logger.exception("Unable to create ERP user session")
+                flash("Sign-in could not be completed. Please try again.", "error")
+                return redirect(url_for("login"))
+
             session.clear()
+            session.permanent = True
             session['user_id'] = user['user_id']
             session['username'] = user['username']
             session['full_name'] = user['full_name']
             session['role'] = user['role']
+            session["erp_session_token"] = token
+            if branch:
+                session["branch_id"] = branch["branch_id"]
+                session["branch_name"] = branch["branch_name"]
 
+            if user['role'] == 'accountant':
+                flash(f"Welcome, {user['full_name']}! 👋", "success")
+                return redirect(url_for('finance.dashboard'))
+            if user['role'] == 'branch_manager':
+                flash(f"Welcome, {user['full_name']}! 👋", "success")
+                return redirect(url_for('branches.index'))
+            if user["role"] == "hr_manager":
+                flash(f"Welcome, {user['full_name']}! 👋", "success")
+                return redirect(url_for("hr.dashboard"))
+            if user["role"] == "procurement_officer":
+                flash(f"Welcome, {user['full_name']}! 👋", "success")
+                return redirect(url_for("procurement.dashboard"))
             if user['role'] == 'patient':
                 session['patient_id'] = user['patient_id']
                 flash(f"Welcome back, {user['full_name']}! 👋", "success")
@@ -1437,13 +1534,31 @@ def login():
 
 @app.route('/logout')
 def logout():
+    token_hash = current_session_hash()
+    if token_hash:
+        try:
+            with db_cursor() as cur:
+                cur.execute(
+                    """UPDATE user_sessions SET revoked_at = CURRENT_TIMESTAMP
+                       WHERE session_token_hash = %s AND user_id = %s AND revoked_at IS NULL""",
+                    (token_hash, session.get("user_id")),
+                )
+                cur.connection.commit()
+        except psycopg2.Error:
+            app.logger.exception("Unable to revoke ERP session during logout")
+            session.clear()
+            flash("Signed out, but the session could not be revoked in the database.", "error")
+            return redirect(url_for("login"))
     session.clear()
     flash("You have been logged out.", "success")
     return redirect(url_for('login'))
 
 
 @app.route('/account/change-password', methods=['POST'])
-@role_required('admin', 'doctor', 'receptionist', 'pharmacist', 'labtech', 'patient')
+@role_required(
+    'admin', 'doctor', 'receptionist', 'pharmacist', 'labtech', 'patient',
+    'accountant', 'hr_manager', 'procurement_officer', 'branch_manager',
+)
 def change_password():
     current_password = request.form.get('current_password', '')
     new_password = request.form.get('new_password', '')
@@ -1463,6 +1578,12 @@ def change_password():
         return redirect(request.referrer or url_for('index'))
     cur.execute("UPDATE users SET password_hash=%s WHERE user_id=%s",
                 (generate_password_hash(new_password), session['user_id']))
+    cur.execute(
+        """UPDATE user_sessions SET revoked_at = CURRENT_TIMESTAMP
+           WHERE user_id = %s AND revoked_at IS NULL
+             AND session_token_hash <> %s""",
+        (session['user_id'], current_session_hash() or ""),
+    )
     conn.commit(); cur.close(); conn.close()
     log_action("Changed account password")
     flash("Password changed successfully!", "success")
@@ -1557,14 +1678,17 @@ def register():
                     (email, generate_password_hash(password), f"{first_name} {last_name}", new_patient_id),
                 )
                 new_user_id = cur.fetchone()[0]
+                token = _create_erp_session(cur, new_user_id)
             conn.commit()
 
             session.clear()
+            session.permanent = True
             session['user_id'] = new_user_id
             session['username'] = email
             session['full_name'] = f"{first_name} {last_name}"
             session['role'] = 'patient'
             session['patient_id'] = new_patient_id
+            session["erp_session_token"] = token
 
             log_action(f"New patient self-registered: {first_name} {last_name}")
             flash("Registration successful! Welcome to the Patient Portal.", "success")
@@ -1574,11 +1698,24 @@ def register():
             conn.rollback()
             flash("An account with this email already exists. Please log in instead.", "error")
             return render_template('Register.html'), 409
+        except psycopg2.Error:
+            conn.rollback()
+            app.logger.exception("Unable to create patient registration session")
+            flash("Registration could not be completed. Please try again.", "error")
+            return render_template('Register.html'), 503
         finally:
             conn.close()
 
     return render_template('Register.html')
 
+
+app.register_blueprint(branches_bp)
+app.register_blueprint(finance_bp)
+app.register_blueprint(hr_bp)
+app.register_blueprint(procurement_bp)
+app.register_blueprint(assets_bp)
+app.register_blueprint(reports_bp)
+app.register_blueprint(user_mgmt_bp)
 
 if __name__ == "__main__":
     debug_mode = os.environ.get("FLASK_DEBUG", "false").lower() == "true"

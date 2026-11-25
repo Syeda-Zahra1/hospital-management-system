@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state, badge %}
+{% block title %}Tax settings | HMS Care{% endblock %}
+{% block page_title %}Tax management{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Configure branch tax rates for new patient invoices</p>{% endblock %}
+{% block content %}
+{% if not branch %}{{ empty_state('building-2', 'Branch access required', 'Select an active branch before managing tax rates.') }}{% else %}
+<section class="form-card"><h2>Add a tax rate</h2><form method="post" class="form-grid" data-loading>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="form-group"><label for="tax-code">Tax code</label><input id="tax-code" name="tax_code" maxlength="30" required></div>
+<div class="form-group"><label for="tax-name">Tax name</label><input id="tax-name" name="tax_name" maxlength="100" required></div>
+<div class="form-group"><label for="tax-rate">Rate (%)</label><input id="tax-rate" type="number" name="rate_percent" min="0" max="100" step="0.0001" required></div>
+<div class="form-group" style="justify-content:flex-end"><button class="btn btn-primary" type="submit">Save tax rate</button></div>
+</form></section>
+<section class="table-card" style="margin-top:24px">{% if taxes %}<div class="table-wrap"><table><thead><tr><th>Code</th><th>Tax name</th><th>Rate</th><th>Status</th><th>Scope</th><th></th></tr></thead><tbody>
+{% for tax in taxes %}<tr><td>{{ tax.tax_code }}</td><td>{{ tax.tax_name }}</td><td>{{ tax.rate_percent }}%</td><td>{{ badge('Active' if tax.is_active else 'Inactive') }}</td><td>{{ 'Shared' if tax.branch_id is none else 'Branch' }}</td><td>{% if tax.branch_id is not none %}<form method="post" action="{{ url_for('finance.toggle_tax', tax_id=tax.tax_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary" type="submit">{{ 'Deactivate' if tax.is_active else 'Activate' }}</button></form>{% else %}Shared{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}{{ empty_state('percent', 'No tax rates', 'Create a branch tax rate for future invoices.') }}{% endif %}</section>
+{% endif %}
+{% endblock %}

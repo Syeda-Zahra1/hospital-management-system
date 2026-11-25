@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state, badge %}
+{% block title %}Asset maintenance | HMS Care{% endblock %}
+{% block page_title %}Maintenance schedule{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Plan preventive service and record asset maintenance history</p>{% endblock %}
+{% block content %}
+{% if not branch %}{{ empty_state('building-2', 'Branch access required', 'Select an active branch to schedule maintenance.') }}{% else %}
+<section class="form-card"><h2>Schedule maintenance</h2><form method="post" class="form-grid" data-loading>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="form-group"><label for="maint-asset">Asset</label><select id="maint-asset" name="asset_id" required><option value="">Select asset</option>{% for asset in assets %}<option value="{{ asset.asset_id }}">{{ asset.asset_tag }} · {{ asset.asset_name }}</option>{% endfor %}</select></div>
+<div class="form-group"><label for="maint-type">Type</label><select id="maint-type" name="maintenance_type"><option value="preventive">Preventive</option><option value="corrective">Corrective</option><option value="inspection">Inspection</option><option value="other">Other</option></select></div>
+<div class="form-group"><label for="maint-date">Scheduled date</label><input id="maint-date" type="date" name="scheduled_date"></div>
+<div class="form-group"><label for="maint-cost">Cost</label><input id="maint-cost" type="number" name="cost" min="0" step="0.01" value="0"></div>
+<div class="form-group"><label for="service-provider">Service provider</label><input id="service-provider" name="service_provider" maxlength="150"></div>
+<div class="form-group full"><label for="maint-details">Details</label><textarea id="maint-details" name="details" maxlength="2000" rows="2"></textarea></div>
+<div class="form-group full"><button class="btn btn-primary" type="submit">Save maintenance entry</button></div>
+</form></section>
+<section class="table-card" style="margin-top:24px">{% if logs %}<div class="table-wrap"><table><thead><tr><th>Asset</th><th>Type</th><th>Scheduled</th><th>Completed</th><th>Provider</th><th>Cost</th><th>Status</th><th>Action</th></tr></thead><tbody>
+{% for log in logs %}<tr><td>{{ log.asset_name }}<br><small>{{ log.asset_tag }}</small></td><td>{{ log.maintenance_type|title }}</td><td>{{ log.scheduled_date or '—' }}</td><td>{{ log.performed_on or '—' }}</td><td>{{ log.service_provider or '—' }}</td><td>{{ log.cost }}</td><td>{{ badge(log.status|replace('_',' ')|title) }}</td><td>{% if log.status in ['scheduled','in_progress'] %}<form method="post" action="{{ url_for('assets.complete_maintenance', log_id=log.maintenance_log_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary" type="submit">Complete</button></form>{% else %}—{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}{{ empty_state('wrench', 'No maintenance records', 'Schedule upcoming service or inspections above.') }}{% endif %}</section>
+{% if total_pages > 1 %}<div class="pagination"><span>Page {{ page }} of {{ total_pages }} · {{ total }} entries</span>{% if page > 1 %}<a class="btn btn-secondary" href="?page={{ page - 1 }}">Previous</a>{% endif %}{% if page < total_pages %}<a class="btn btn-secondary" href="?page={{ page + 1 }}">Next</a>{% endif %}</div>{% endif %}
+{% endif %}
+{% endblock %}

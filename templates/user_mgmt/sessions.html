@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state, badge %}
+{% block title %}Active sessions | HMS Care{% endblock %}
+{% block page_title %}Active sessions{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Revoke a sign-in session to require the user to authenticate again</p>{% endblock %}
+{% block content %}
+<section class="table-card">{% if sessions %}<div class="table-wrap"><table><thead><tr><th>User</th><th>Role</th><th>Branch</th><th>IP address</th><th>Device</th><th>Last seen</th><th>Expires</th><th>Action</th></tr></thead><tbody>
+{% for item in sessions %}<tr><td>{{ item.full_name }}<br><small>{{ item.username }}</small></td><td>{{ item.role|replace('_',' ')|title }}</td><td>{{ item.branch_name or '—' }}</td><td>{{ item.ip_address or '—' }}</td><td>{{ item.user_agent or '—' }}</td><td>{{ item.last_seen_at }}</td><td>{{ item.expires_at }}</td><td>{% if item.is_current %}{{ badge('Current session', 'success') }}{% else %}<form method="post" action="{{ url_for('user_mgmt.revoke_session', session_id=item.user_session_id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary" type="submit">Revoke</button></form>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}{{ empty_state('monitor', 'No active sessions', 'No active user sessions were found.') }}{% endif %}</section>
+{% if total_pages > 1 %}<div class="pagination"><span>Page {{ page }} of {{ total_pages }} · {{ total }} active sessions</span>{% if page > 1 %}<a class="btn btn-secondary" href="?page={{ page - 1 }}">Previous</a>{% endif %}{% if page < total_pages %}<a class="btn btn-secondary" href="?page={{ page + 1 }}">Next</a>{% endif %}</div>{% endif %}
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state, badge %}
+{% block title %}Vendors | HMS Care{% endblock %}
+{% block page_title %}Vendor directory{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Branch-scoped suppliers, contacts and payment terms</p>{% endblock %}
+{% block content %}
+{% if not branch %}<div class="panel" style="padding:24px">Select an active branch to manage vendors.</div>{% else %}
+<section class="form-card"><h2>Add vendor</h2>
+<form method="post" class="form-grid" data-loading><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="form-group"><label for="vendor-code">Vendor code</label><input id="vendor-code" name="vendor_code" maxlength="40" required></div>
+<div class="form-group"><label for="vendor-name">Vendor name</label><input id="vendor-name" name="vendor_name" maxlength="150" required></div>
+<div class="form-group"><label for="contact-name">Contact name</label><input id="contact-name" name="contact_name" maxlength="100"></div>
+<div class="form-group"><label for="vendor-email">Email</label><input id="vendor-email" type="email" name="email" maxlength="150"></div>
+<div class="form-group"><label for="vendor-phone">Phone</label><input id="vendor-phone" name="phone" maxlength="30"></div>
+<div class="form-group"><label for="payment-terms">Payment terms (days)</label><input id="payment-terms" type="number" name="payment_terms_days" value="30" min="0" max="3650"></div>
+<div class="form-group full"><label for="vendor-address">Address</label><textarea id="vendor-address" name="address" rows="2"></textarea></div>
+<div class="form-group full"><button class="btn btn-primary" type="submit">Add vendor</button></div>
+</form></section>
+<section class="table-card" style="margin-top:24px">
+{% if vendors %}<div class="table-wrap"><table><thead><tr><th>Code</th><th>Vendor</th><th>Contact</th><th>Email / phone</th><th>Terms</th><th>Status</th></tr></thead><tbody>
+{% for vendor in vendors %}<tr><td>{{ vendor.vendor_code }}</td><td>{{ vendor.vendor_name }}</td><td>{{ vendor.contact_name or '—' }}</td><td>{{ vendor.email or '—' }}<br>{{ vendor.phone or '' }}</td><td>{{ vendor.payment_terms_days }} days</td><td>{{ badge('Active' if vendor.is_active else 'Inactive') }}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}{{ empty_state('contact-round', 'No vendors yet', 'Add a supplier to start creating requisitions and purchase orders.') }}{% endif %}
+</section>
+{% if total_pages > 1 %}<div class="pagination"><span>Page {{ page }} of {{ total_pages }} · {{ total }} vendors</span>{% if page > 1 %}<a class="btn btn-secondary" href="?page={{ page - 1 }}">Previous</a>{% endif %}{% if page < total_pages %}<a class="btn btn-secondary" href="?page={{ page + 1 }}">Next</a>{% endif %}</div>{% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state, badge %}
+{% block title %}Payroll | HMS Care{% endblock %}
+{% block page_title %}Payroll processing{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Create draft payroll runs, review payslips and track payment status</p>{% endblock %}
+{% block content %}
+{% if not branch %}
+  {{ empty_state('building-2', 'Branch access required', 'Assign your HR account to an active branch before processing payroll.') }}
+{% else %}
+<section class="form-card">
+  <h2>Create a payroll run</h2>
+  <p class="inline-note">Payroll is calculated from employee base salary and active salary components. Tax withholding is not automated.</p>
+  <form method="post" class="form-grid" data-loading>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group"><label for="period-start">Period start</label><input id="period-start" type="date" name="period_start" required></div>
+    <div class="form-group"><label for="period-end">Period end</label><input id="period-end" type="date" name="period_end" required></div>
+    <div class="form-group full"><button class="btn btn-primary" type="submit">Generate draft</button></div>
+  </form>
+</section>
+<section class="table-card" style="margin-top:24px">
+  {% if payroll_runs %}
+  <div class="table-wrap"><table><thead><tr><th>Period</th><th>Employees</th><th>Gross</th><th>Deductions</th><th>Tax</th><th>Net</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+  {% for run in payroll_runs %}<tr><td>{{ run.period_start }} – {{ run.period_end }}</td><td>{{ run.payslip_count }}</td><td>{{ run.total_gross }}</td><td>{{ run.total_deductions }}</td><td>{{ run.total_tax }}</td><td>{{ run.total_net }}</td><td>{{ badge(run.status|title) }}</td><td><div class="action-row"><a class="btn btn-secondary" href="{{ url_for('hr.payslips', run_id=run.payroll_run_id) }}">Payslips</a>{% if run.status == 'draft' %}<form method="post" action="{{ url_for('hr.update_payroll', run_id=run.payroll_run_id, action='approve') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-primary" type="submit">Approve</button></form>{% elif run.status == 'approved' %}<form method="post" action="{{ url_for('hr.update_payroll', run_id=run.payroll_run_id, action='mark-paid') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary" type="submit">Mark paid</button></form>{% endif %}</div></td></tr>{% endfor %}
+  </tbody></table></div>
+  {% else %}{{ empty_state('wallet', 'No payroll runs', 'Generate a payroll run for salaried staff in this branch.') }}{% endif %}
+</section>
+{% if total_pages > 1 %}<div class="pagination"><span>Page {{ page }} of {{ total_pages }} · {{ total }} runs</span>{% if page > 1 %}<a class="btn btn-secondary" href="?page={{ page - 1 }}">Previous</a>{% endif %}{% if page < total_pages %}<a class="btn btn-secondary" href="?page={{ page + 1 }}">Next</a>{% endif %}</div>{% endif %}
+{% endif %}
+{% endblock %}

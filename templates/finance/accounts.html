@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Chart of accounts | HMS Care ERP{% endblock %}
+{% block page_title %}Chart of accounts{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">{% if branch %}Accounts available to {{ branch.branch_name }}{% else %}Branch-scoped ledger accounts{% endif %}</p>{% endblock %}
+
+{% block content %}
+<div class="section-head">
+  <div><span class="eyebrow">Ledger structure</span><p class="inline-note">{{ total }} accounts · 50 per page</p></div>
+  <a class="btn btn-secondary" href="{{ url_for('finance.dashboard') }}"><i data-lucide="arrow-left"></i><span>Finance overview</span></a>
+</div>
+
+{% if branch %}
+<section class="form-card">
+  <div class="section-head"><div><h2>Add account</h2><p class="inline-note">Account codes must be unique across the organization.</p></div></div>
+  <form method="POST" action="{{ url_for('finance.accounts') }}" class="form-grid" data-loading>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-group"><label for="account-code">Account code</label><input id="account-code" name="account_code" maxlength="30" required placeholder="e.g. 1010"></div>
+    <div class="form-group"><label for="account-name">Account name</label><input id="account-name" name="account_name" maxlength="150" required placeholder="Cash and cash equivalents"></div>
+    <div class="form-group"><label for="account-type">Account type</label>
+      <select id="account-type" name="account_type" required>
+        <option value="">Choose type</option><option value="asset">Asset</option><option value="liability">Liability</option><option value="equity">Equity</option><option value="revenue">Revenue</option><option value="expense">Expense</option>
+      </select>
+    </div>
+    <div class="form-group"><label for="normal-balance">Normal balance</label>
+      <select id="normal-balance" name="normal_balance" required><option value="">Choose balance</option><option value="debit">Debit</option><option value="credit">Credit</option></select>
+    </div>
+    <div class="form-group"><label for="parent-account">Parent account</label>
+      <select id="parent-account" name="parent_account_id"><option value="">No parent</option>{% for parent in parents %}<option value="{{ parent.account_id }}">{{ parent.account_code }} · {{ parent.account_name }}</option>{% endfor %}</select>
+    </div>
+    <div class="form-group"><label for="account-description">Description</label><input id="account-description" name="description" maxlength="1000"></div>
+    <div class="form-group full"><button type="submit" class="btn btn-primary"><i data-lucide="plus"></i><span>Add account</span></button></div>
+  </form>
+</section>
+{% else %}
+<section class="panel section-card">{{ empty_state('building-2', 'Branch access is needed', 'Ask an administrator to assign your account to an active branch before viewing financial accounts.') }}</section>
+{% endif %}
+
+<section class="table-card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Code</th><th>Account</th><th>Type</th><th>Normal balance</th><th>Parent</th><th>Status</th></tr></thead>
+      <tbody>
+        {% for account in accounts %}
+        <tr>
+          <td><strong>{{ account.account_code }}</strong></td>
+          <td>{{ account.account_name }}</td>
+          <td>{{ badge(account.account_type|title, 'neutral') }}</td>
+          <td>{{ account.normal_balance|title }}</td>
+          <td>{{ account.parent_name or '—' }}</td>
+          <td>{{ badge('Active', 'success') if account.is_active else badge('Inactive', 'neutral') }}</td>
+        </tr>
+        {% else %}
+        <tr><td class="empty-state-cell" colspan="6">{{ empty_state('list-tree', 'No accounts yet', 'Add ledger accounts for this branch before creating journal entries.') }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="Account pagination">
+  {% if page > 1 %}<a class="btn btn-secondary" href="{{ url_for('finance.accounts', page=page - 1) }}">Previous</a>{% endif %}
+  <span class="inline-note">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}<a class="btn btn-secondary" href="{{ url_for('finance.accounts', page=page + 1) }}">Next</a>{% endif %}
+</nav>
+{% endif %}
+{% endblock %}

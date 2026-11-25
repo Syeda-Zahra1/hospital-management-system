@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state, badge, button_variant %}
+{% block title %}Asset register | HMS Care{% endblock %}
+{% block page_title %}Asset register{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Equipment, facilities and straight-line depreciation estimates</p>{% endblock %}
+{% block content %}
+<div class="action-row" style="margin-bottom:20px">
+  {{ button_variant('Maintenance', url_for('assets.maintenance'), variant='secondary', icon='wrench') }}
+  {{ button_variant('Assignments', url_for('assets.assignments'), variant='secondary', icon='users-round') }}
+</div>
+{% if not branch %}
+  {{ empty_state('building-2', 'Branch access required', 'Select or create an active branch before managing assets.') }}
+{% else %}
+<div class="form-grid" style="align-items:start">
+<section class="form-card"><h2>Add asset</h2><form method="post" action="{{ url_for('assets.create') }}" class="form-grid" data-loading>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="form-group"><label for="asset-tag">Asset tag</label><input id="asset-tag" name="asset_tag" maxlength="60" required></div>
+<div class="form-group"><label for="asset-name">Asset name</label><input id="asset-name" name="asset_name" maxlength="150" required></div>
+<div class="form-group"><label for="asset-category">Category</label><select id="asset-category" name="asset_category_id" required><option value="">Select category</option>{% for category in categories %}<option value="{{ category.asset_category_id }}">{{ category.category_name }}</option>{% endfor %}</select></div>
+<div class="form-group"><label for="asset-serial">Serial number</label><input id="asset-serial" name="serial_number" maxlength="100"></div>
+<div class="form-group"><label for="purchase-date">Purchase date</label><input id="purchase-date" type="date" name="purchase_date" required></div>
+<div class="form-group"><label for="purchase-cost">Purchase cost</label><input id="purchase-cost" type="number" name="purchase_cost" min="0" step="0.01" required></div>
+<div class="form-group"><label for="salvage-value">Salvage value</label><input id="salvage-value" type="number" name="salvage_value" min="0" step="0.01" value="0" required></div>
+<div class="form-group"><label for="useful-life">Useful life (months)</label><input id="useful-life" type="number" name="useful_life_months" min="1" max="1200" required></div>
+<div class="form-group full"><button class="btn btn-primary" type="submit">Add to register</button></div>
+</form></section>
+<section class="form-card"><h2>Create a category</h2><form method="post" action="{{ url_for('assets.create_category') }}" class="form-grid" data-loading>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="form-group full"><label for="category-name">Category name</label><input id="category-name" name="category_name" maxlength="100" required></div>
+<div class="form-group"><label for="category-life">Default life (months)</label><input id="category-life" type="number" name="default_useful_life_months" min="1" max="1200"></div>
+<div class="form-group full"><label for="category-description">Description</label><textarea id="category-description" name="description" rows="2"></textarea></div>
+<div class="form-group full"><button class="btn btn-secondary" type="submit">Create category</button></div>
+</form></section>
+</div>
+<section class="table-card" style="margin-top:24px">
+{% if assets %}<div class="table-wrap"><table><thead><tr><th>Asset</th><th>Category</th><th>Purchased</th><th>Cost</th><th>Useful life</th><th>Depreciation to date</th><th>Net book value</th><th>Status</th></tr></thead><tbody>
+{% for asset in assets %}<tr><td><strong>{{ asset.asset_name }}</strong><br><small>{{ asset.asset_tag }}</small></td><td>{{ asset.category_name }}</td><td>{{ asset.purchase_date }}</td><td>{{ asset.purchase_cost }}</td><td>{{ asset.useful_life_months }} mo</td><td>{{ asset.straight_line_depreciation }}</td><td>{{ asset.net_book_value }}</td><td>{{ badge(asset.status|replace('_',' ')|title) }}</td></tr>{% endfor %}
+</tbody></table></div><p class="inline-note" style="padding:14px 18px">Depreciation and net book value are estimates calculated using straight-line depreciation through today; they are not posted to the general ledger.</p>{% else %}{{ empty_state('boxes', 'No assets registered', 'Add an asset and category to establish the branch register.') }}{% endif %}
+</section>
+{% if total_pages > 1 %}<div class="pagination"><span>Page {{ page }} of {{ total_pages }} · {{ total }} assets</span>{% if page > 1 %}<a class="btn btn-secondary" href="?page={{ page - 1 }}">Previous</a>{% endif %}{% if page < total_pages %}<a class="btn btn-secondary" href="?page={{ page + 1 }}">Next</a>{% endif %}</div>{% endif %}
+{% endif %}
+{% endblock %}

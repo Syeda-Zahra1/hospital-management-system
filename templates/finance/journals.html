@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+{% block title %}Journal entries | HMS Care ERP{% endblock %}
+{% block page_title %}Journal entries{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Create drafts and post balanced entries{% if branch %} · {{ branch.branch_name }}{% endif %}</p>{% endblock %}
+
+{% block content %}
+<div class="section-head">
+  <div><span class="eyebrow">General ledger</span><p class="inline-note">{{ total }} entries · 50 per page</p></div>
+  <a class="btn btn-secondary" href="{{ url_for('finance.dashboard') }}"><i data-lucide="arrow-left"></i><span>Finance overview</span></a>
+</div>
+
+{% if branch and accounts %}
+<section class="form-card">
+  <div class="section-head"><div><h2>New journal draft</h2><p class="inline-note">Total debits must equal total credits before an entry can be posted.</p></div></div>
+  <form method="POST" action="{{ url_for('finance.journals') }}" data-loading>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="form-grid">
+      <div class="form-group"><label for="entry-date">Entry date</label><input id="entry-date" name="entry_date" type="date" value="{{ today }}" required></div>
+      <div class="form-group"><label for="entry-description">Description</label><input id="entry-description" name="description" maxlength="500" required></div>
+    </div>
+    <div class="journal-lines-head">
+      <h3>Entry lines</h3>
+      <button type="button" class="btn btn-secondary btn-small" data-add-journal-line><i data-lucide="plus"></i><span>Add line</span></button>
+    </div>
+    <div class="journal-lines" data-journal-lines>
+      {% for line_number in range(2) %}
+      <div class="journal-line" data-journal-line>
+        <div class="form-group journal-line__account"><label for="line-account-{{ line_number }}">Account</label>
+          <select id="line-account-{{ line_number }}" name="account_id" required><option value="">Choose account</option>{% for account in accounts %}<option value="{{ account.account_id }}">{{ account.account_code }} · {{ account.account_name }}</option>{% endfor %}</select>
+        </div>
+        <div class="form-group journal-line__description"><label for="line-description-{{ line_number }}">Line description</label><input id="line-description-{{ line_number }}" name="line_description" maxlength="255"></div>
+        <div class="form-group journal-line__amount"><label for="line-debit-{{ line_number }}">Debit</label><input id="line-debit-{{ line_number }}" name="debit" type="number" min="0" max="9999999999.99" step="0.01" value="0.00" required></div>
+        <div class="form-group journal-line__amount"><label for="line-credit-{{ line_number }}">Credit</label><input id="line-credit-{{ line_number }}" name="credit" type="number" min="0" max="9999999999.99" step="0.01" value="0.00" required></div>
+        <button type="button" class="journal-line__remove" data-remove-journal-line aria-label="Remove journal line" disabled><i data-lucide="x"></i></button>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="journal-form-actions"><span class="inline-note">New entries are saved as drafts.</span><button type="submit" class="btn btn-primary"><i data-lucide="save"></i><span>Save draft</span></button></div>
+  </form>
+</section>
+{% elif not branch %}
+<section class="panel section-card">{{ empty_state('building-2', 'Branch access is needed', 'Ask an administrator to assign your account to an active branch before creating journal entries.') }}</section>
+{% else %}
+<section class="panel section-card">{{ empty_state('list-tree', 'Add accounts first', 'Create at least two active accounts in this branch before starting a journal entry.', 'Open chart of accounts', url_for('finance.accounts')) }}</section>
+{% endif %}
+
+<section class="form-card">
+  <form method="GET" action="{{ url_for('finance.journals') }}" class="toolbar">
+    <div><h2>Journal register</h2><p class="inline-note">Filter entries by date.</p></div>
+    <div class="controls">
+      <label class="sr-only" for="journal-start-date">Start date</label><input class="filter-field" id="journal-start-date" name="start_date" type="date" value="{{ start_date }}">
+      <label class="sr-only" for="journal-end-date">End date</label><input class="filter-field" id="journal-end-date" name="end_date" type="date" value="{{ end_date }}">
+      <button type="submit" class="btn btn-secondary">Filter</button>
+    </div>
+  </form>
+</section>
+
+<section class="table-card">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Entry</th><th>Date</th><th>Description</th><th>Debit</th><th>Credit</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody>
+        {% for entry in entries %}
+        <tr>
+          <td><strong>{{ entry.entry_number }}</strong><div class="inline-note">By {{ entry.created_by }}</div></td>
+          <td>{{ entry.entry_date }}</td>
+          <td>{{ entry.description }}</td>
+          <td>{{ '%.2f'|format(entry.debit_total) }}</td>
+          <td>{{ '%.2f'|format(entry.credit_total) }}</td>
+          <td>{{ badge(entry.status|title, 'success' if entry.status == 'posted' else 'warning' if entry.status == 'draft' else 'neutral') }}</td>
+          <td>
+            {% if entry.status == 'draft' %}
+            <form method="POST" action="{{ url_for('finance.post_journal', entry_id=entry.journal_entry_id) }}" data-confirm="Post {{ entry.entry_number }}? Posted journal entries should not be changed." data-loading>
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button type="submit" class="btn btn-secondary btn-small">Post entry</button>
+            </form>
+            {% else %}<span class="inline-note">Read only</span>{% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td class="empty-state-cell" colspan="7">{{ empty_state('book-open-check', 'No journal entries found', 'New draft entries will appear in this register.') }}</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% if total_pages > 1 %}
+<nav class="pagination" aria-label="Journal pagination">
+  {% if page > 1 %}<a class="btn btn-secondary" href="{{ url_for('finance.journals', page=page - 1, start_date=start_date, end_date=end_date) }}">Previous</a>{% endif %}
+  <span class="inline-note">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}<a class="btn btn-secondary" href="{{ url_for('finance.journals', page=page + 1, start_date=start_date, end_date=end_date) }}">Next</a>{% endif %}
+</nav>
+{% endif %}
+
+<template id="journal-line-template">
+  <div class="journal-line" data-journal-line>
+    <div class="form-group journal-line__account"><label>Account</label>
+      <select name="account_id" required><option value="">Choose account</option>{% for account in accounts %}<option value="{{ account.account_id }}">{{ account.account_code }} · {{ account.account_name }}</option>{% endfor %}</select>
+    </div>
+    <div class="form-group journal-line__description"><label>Line description</label><input name="line_description" maxlength="255"></div>
+    <div class="form-group journal-line__amount"><label>Debit</label><input name="debit" type="number" min="0" max="9999999999.99" step="0.01" value="0.00" required></div>
+    <div class="form-group journal-line__amount"><label>Credit</label><input name="credit" type="number" min="0" max="9999999999.99" step="0.01" value="0.00" required></div>
+    <button type="button" class="journal-line__remove" data-remove-journal-line aria-label="Remove journal line"><i data-lucide="x"></i></button>
+  </div>
+</template>
+<script>
+  document.addEventListener('DOMContentLoaded', function () {
+    const lines = document.querySelector('[data-journal-lines]');
+    const template = document.getElementById('journal-line-template');
+    const addButton = document.querySelector('[data-add-journal-line]');
+    if (!lines || !template || !addButton) return;
+
+    function updateLineControls() {
+      const rows = lines.querySelectorAll('[data-journal-line]');
+      rows.forEach(function (row) {
+        const remove = row.querySelector('[data-remove-journal-line]');
+        if (remove) remove.disabled = rows.length <= 2;
+      });
+      addButton.disabled = rows.length >= 20;
+    }
+
+    addButton.addEventListener('click', function () {
+      if (lines.querySelectorAll('[data-journal-line]').length >= 20) return;
+      const row = template.content.firstElementChild.cloneNode(true);
+      lines.appendChild(row);
+      if (window.lucide) window.lucide.createIcons({ root: row });
+      updateLineControls();
+      row.querySelector('select').focus();
+    });
+
+    lines.addEventListener('click', function (event) {
+      const remove = event.target.closest('[data-remove-journal-line]');
+      if (!remove || lines.querySelectorAll('[data-journal-line]').length <= 2) return;
+      remove.closest('[data-journal-line]').remove();
+      updateLineControls();
+    });
+
+    updateLineControls();
+  });
+</script>
+{% endblock %}

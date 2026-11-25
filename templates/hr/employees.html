@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state %}
+{% block title %}Employees | HMS Care{% endblock %}
+{% block page_title %}Employee records{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Maintain branch staff details and employment information</p>{% endblock %}
+{% block content %}
+{% if not branch %}{{ empty_state('building-2', 'Branch access required', 'Assign your HR account to a branch to manage employee records.') }}{% else %}
+<section class="form-card"><h2>Add employee</h2><form method="post" class="form-grid" data-loading>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="form-group"><label for="employee-first">First name</label><input id="employee-first" name="first_name" maxlength="50" required></div>
+<div class="form-group"><label for="employee-last">Last name</label><input id="employee-last" name="last_name" maxlength="50" required></div>
+<div class="form-group"><label for="employee-designation">Designation</label><input id="employee-designation" name="designation" maxlength="100"></div>
+<div class="form-group"><label for="employee-role">Job role</label><input id="employee-role" name="role" maxlength="50"></div>
+<div class="form-group"><label for="employee-dept">Department</label><select id="employee-dept" name="dept_id"><option value="">Unassigned</option>{% for dept in departments %}<option value="{{ dept.dept_id }}">{{ dept.dept_name }}</option>{% endfor %}</select></div>
+<div class="form-group"><label for="employee-type">Employment type</label><select id="employee-type" name="employment_type" required><option value="full_time">Full time</option><option value="part_time">Part time</option><option value="contract">Contract</option><option value="temporary">Temporary</option><option value="intern">Intern</option></select></div>
+<div class="form-group"><label for="employee-join">Join date</label><input id="employee-join" type="date" name="join_date"></div>
+<div class="form-group"><label for="employee-salary">Monthly base salary</label><input id="employee-salary" type="number" name="salary" min="0" step="0.01"></div>
+<div class="form-group"><label for="employee-email">Email</label><input id="employee-email" type="email" name="email" maxlength="100"></div>
+<div class="form-group"><label for="employee-phone">Phone</label><input id="employee-phone" name="phone" maxlength="20"></div>
+<div class="form-group full"><button class="btn btn-primary" type="submit">Add employee</button></div>
+</form></section>
+<section class="table-card" style="margin-top:24px">{% if employees %}<div class="table-wrap"><table><thead><tr><th>Employee</th><th>Designation / role</th><th>Department</th><th>Employment</th><th>Join date</th><th>Base salary</th><th>Contact</th></tr></thead><tbody>
+{% for employee in employees %}<tr><td>{{ employee.first_name }} {{ employee.last_name }}</td><td>{{ employee.designation or '—' }}<br><small>{{ employee.role or '' }}</small></td><td>{{ employee.dept_name or '—' }}</td><td>{{ employee.employment_type|replace('_',' ')|title if employee.employment_type else '—' }}</td><td>{{ employee.join_date or '—' }}</td><td>{{ employee.salary or '—' }}</td><td>{{ employee.email or '—' }}<br><small>{{ employee.phone or '' }}</small></td></tr>{% endfor %}
+</tbody></table></div>{% else %}{{ empty_state('users-round', 'No employees recorded', 'Add employees to this branch to use attendance and payroll.') }}{% endif %}</section>
+{% if total_pages > 1 %}<div class="pagination"><span>Page {{ page }} of {{ total_pages }} · {{ total }} employees</span>{% if page > 1 %}<a class="btn btn-secondary" href="?page={{ page - 1 }}">Previous</a>{% endif %}{% if page < total_pages %}<a class="btn btn-secondary" href="?page={{ page + 1 }}">Next</a>{% endif %}</div>{% endif %}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state, badge %}
+{% block title %}Goods receipts | HMS Care{% endblock %}
+{% block page_title %}Goods received notes{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Receive sent orders and update medicine stock</p>{% endblock %}
+{% block content %}
+{% if not branch %}<div class="panel" style="padding:24px">Select an active branch to receive goods.</div>{% else %}
+<section class="form-card"><h2>Record goods receipt</h2><form method="post" class="form-grid" data-loading>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="form-group full"><label for="grn-line">Purchase order line</label><select id="grn-line" name="po_line_id" required><option value="">Select open order line</option>{% for line in open_lines %}<option value="{{ line.po_line_id }}">{{ line.po_number }} · {{ line.vendor_name }} · {{ line.item_description }} · remaining {{ line.quantity - line.received }}</option>{% endfor %}</select></div>
+<div class="form-group"><label for="received-qty">Quantity received</label><input id="received-qty" type="number" name="quantity_received" step="0.001" min="0.001" required></div>
+<div class="form-group"><label for="grn-notes">Notes</label><input id="grn-notes" name="notes" maxlength="1000"></div>
+<div class="form-group full"><button class="btn btn-primary" type="submit">Record receipt</button></div>
+</form></section>
+<section class="table-card" style="margin-top:24px">{% if receipts %}<div class="table-wrap"><table><thead><tr><th>GRN</th><th>Purchase order</th><th>Vendor</th><th>Received</th><th>Status</th></tr></thead><tbody>
+{% for row in receipts %}<tr><td>{{ row.grn_number }}</td><td>{{ row.po_number }}</td><td>{{ row.vendor_name }}</td><td>{{ row.received_date }}</td><td>{{ badge(row.status|title) }}</td></tr>{% endfor %}
+</tbody></table></div>{% else %}{{ empty_state('package-check', 'No receipts', 'Goods receipts for this branch will be listed here.') }}{% endif %}</section>
+{% endif %}
+{% endblock %}

@@ -79,7 +79,7 @@
         <div class="brand-mark"><i data-lucide="heart-pulse"></i></div>
         <div>
           <div class="brand-name">HMS</div>
-          <div class="brand-subtitle">CareHub</div>
+          <div class="brand-subtitle">Care ERP</div>
         </div>
       </div>
 
@@ -101,7 +101,10 @@
           ('/staff', 'briefcase-business', 'Staff'),
           ('/admin/dashboard', 'bar-chart-3', 'Admin Analytics'),
           ('/admin/logs', 'clipboard-list', 'Audit Logs'),
-          ('/admin/users', 'key-round', 'User Passwords')
+          ('/admin/users', 'key-round', 'HMS User Passwords'),
+          ('/admin/erp/users', 'users-round', 'ERP User Management'),
+          ('/admin/erp/permissions', 'shield-check', 'Role Permissions'),
+          ('/admin/erp/sessions', 'monitor', 'Active Sessions')
         ] %}
       {% elif current_role == 'doctor' %}
         {% set nav_items = [
@@ -139,13 +142,61 @@
           ('/patient/dashboard', 'layout-grid', 'My Dashboard'),
           ('/doctors', 'stethoscope', 'Doctors')
         ] %}
+      {% elif current_role == 'accountant' %}
+        {% set nav_items = [
+          ('/finance', 'layout-grid', 'Finance overview'),
+          ('/finance/accounts', 'list-tree', 'Chart of accounts'),
+          ('/finance/journals', 'book-open-check', 'Journal entries'),
+          ('/finance/receivables', 'receipt', 'Accounts receivable'),
+          ('/finance/taxes', 'percent', 'Tax management'),
+          ('/finance/trial-balance', 'scale', 'Trial balance'),
+          ('/finance/balance-sheet', 'landmark', 'Balance sheet'),
+          ('/procurement/invoices', 'receipt', 'Vendor invoices'),
+          ('/reports/', 'chart-no-axes-combined', 'Reports')
+        ] %}
+      {% elif current_role == 'branch_manager' %}
+        {% set nav_items = [
+          ('/branches/', 'building-2', 'Branches'),
+          ('/reports/', 'chart-no-axes-combined', 'Reports')
+        ] %}
+      {% elif current_role == 'hr_manager' %}
+        {% set nav_items = [
+          ('/hr/', 'users-round', 'People & Payroll'),
+          ('/hr/employees', 'contact-round', 'Employees'),
+          ('/hr/attendance', 'calendar-check', 'Attendance'),
+          ('/hr/leave', 'calendar-days', 'Leave Management'),
+          ('/hr/salary-components', 'wallet-cards', 'Salary Components'),
+          ('/hr/payroll', 'wallet', 'Payroll')
+        ] %}
+      {% elif current_role == 'procurement_officer' %}
+        {% set nav_items = [
+          ('/procurement/', 'truck', 'Procurement Overview'),
+          ('/procurement/vendors', 'contact-round', 'Vendors'),
+          ('/procurement/requisitions', 'clipboard-list', 'Requisitions'),
+          ('/procurement/orders', 'file-check-2', 'Purchase Orders'),
+          ('/procurement/receipts', 'package-check', 'Goods Receipts'),
+          ('/procurement/invoices', 'receipt', 'Vendor Invoices')
+        ] %}
       {% endif %}
 
       <nav class="sidebar__nav" aria-label="Main navigation">
         {% for item in nav_items %}
-          {% set active = current_path == item[0] %}
+          {% set active = current_path == item[0] or (current_role == 'accountant' and item[0] == '/finance' and current_path.startswith('/finance')) %}
           {{ sidebar_link(item[0], item[1], item[2], active) }}
         {% endfor %}
+        {% if current_role == 'admin' %}
+        {{ sidebar_link('/finance', 'wallet-cards', 'Finance & Accounting', current_path.startswith('/finance')) }}
+        {{ sidebar_link('/finance/receivables', 'receipt', 'Accounts Receivable', current_path.startswith('/finance/receivables')) }}
+        {{ sidebar_link('/finance/taxes', 'percent', 'Tax Management', current_path.startswith('/finance/taxes')) }}
+        {{ sidebar_link('/finance/trial-balance', 'scale', 'Trial Balance', current_path.startswith('/finance/trial-balance')) }}
+        {{ sidebar_link('/finance/balance-sheet', 'landmark', 'Balance Sheet', current_path.startswith('/finance/balance-sheet')) }}
+        {{ sidebar_link('/branches/', 'building-2', 'Branches', current_path.startswith('/branches')) }}
+        <div class="nav-section-label">ERP workspace</div>
+        {{ sidebar_link('/hr/', 'users-round', 'People & Payroll', current_path.startswith('/hr')) }}
+        {{ sidebar_link('/procurement/', 'truck', 'Procurement', current_path.startswith('/procurement')) }}
+        {{ sidebar_link('/assets/', 'boxes', 'Asset Management', current_path.startswith('/assets')) }}
+        {{ sidebar_link('/reports/', 'chart-no-axes-combined', 'Reports & Insights', current_path.startswith('/reports')) }}
+        {% endif %}
       </nav>
 
       <div class="sidebar__footer">
@@ -173,6 +224,18 @@
           {% block page_subtitle %}<p class="page-subtitle">Overview</p>{% endblock %}
         </div>
         <div class="topbar__actions">
+          {% if session.get('branch_name') and session.get('role') in ['admin', 'branch_manager'] %}
+          <a class="branch-switcher" href="{{ url_for('branches.index') }}" aria-label="Active branch: {{ session.get('branch_name') }}. Open branch workspace">
+            <i data-lucide="building-2" aria-hidden="true"></i>
+            <span><small>Active branch</small><strong>{{ session.get('branch_name') }}</strong></span>
+            <i class="branch-switcher__chevron" data-lucide="chevron-down" aria-hidden="true"></i>
+          </a>
+          {% elif session.get('branch_name') %}
+          <div class="branch-switcher" aria-label="Active branch: {{ session.get('branch_name') }}">
+            <i data-lucide="building-2" aria-hidden="true"></i>
+            <span><small>Active branch</small><strong>{{ session.get('branch_name') }}</strong></span>
+          </div>
+          {% endif %}
           <button class="icon-button" aria-label="Notifications">
             <i data-lucide="bell"></i>
           </button>

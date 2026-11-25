@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state, badge %}
+{% block title %}Purchase requisitions | HMS Care{% endblock %}
+{% block page_title %}Purchase requisitions{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Request items for internal approval before placing an order</p>{% endblock %}
+{% block content %}
+{% if not branch %}<div class="panel" style="padding:24px">Select an active branch to create requisitions.</div>{% else %}
+<section class="form-card"><h2>New requisition</h2><form method="post" class="form-grid" data-loading>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="form-group"><label for="item-desc">Item description</label><input id="item-desc" name="item_description" maxlength="255" required></div>
+<div class="form-group"><label for="medicine">Link medicine (optional)</label><select id="medicine" name="medicine_id"><option value="">Not a medicine</option>{% for medicine in medicines %}<option value="{{ medicine.medicine_id }}">{{ medicine.medicine_name }}</option>{% endfor %}</select></div>
+<div class="form-group"><label for="req-quantity">Quantity</label><input id="req-quantity" type="number" step="0.001" min="0.001" name="quantity" required></div>
+<div class="form-group"><label for="estimated-cost">Estimated unit cost</label><input id="estimated-cost" type="number" step="0.01" min="0" name="estimated_unit_cost" required></div>
+<div class="form-group full"><label for="justification">Justification</label><textarea id="justification" name="justification" maxlength="2000" rows="2"></textarea></div>
+<div class="form-group full"><button class="btn btn-primary" type="submit">Save draft requisition</button></div>
+</form></section>
+<section class="table-card" style="margin-top:24px">{% if requisitions %}<div class="table-wrap"><table><thead><tr><th>Requisition</th><th>Requester</th><th>Item</th><th>Qty</th><th>Estimate</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+{% for row in requisitions %}<tr><td>{{ row.requisition_number }}<br><small>{{ row.request_date }}</small></td><td>{{ row.requester }}</td><td>{{ row.item_description or '—' }}</td><td>{{ row.quantity or '—' }}</td><td>{{ row.estimated_unit_cost or '—' }}</td><td>{{ badge(row.status|title) }}</td><td><div class="action-row">
+{% if row.status == 'draft' %}<form method="post" action="{{ url_for('procurement.update_requisition', req_id=row.requisition_id, action='submit') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary" type="submit">Submit</button></form>{% endif %}
+{% if row.status == 'submitted' %}<form method="post" action="{{ url_for('procurement.update_requisition', req_id=row.requisition_id, action='approve') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-primary" type="submit">Approve</button></form><form method="post" action="{{ url_for('procurement.update_requisition', req_id=row.requisition_id, action='reject') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary" type="submit">Reject</button></form>{% endif %}
+</div></td></tr>{% endfor %}
+</tbody></table></div>{% else %}{{ empty_state('clipboard-list', 'No requisitions', 'Create an internal request to begin procurement approval.') }}{% endif %}</section>
+{% if total_pages > 1 %}<div class="pagination"><span>Page {{ page }} of {{ total_pages }} · {{ total }} requisitions</span>{% if page > 1 %}<a class="btn btn-secondary" href="?page={{ page - 1 }}">Previous</a>{% endif %}{% if page < total_pages %}<a class="btn btn-secondary" href="?page={{ page + 1 }}">Next</a>{% endif %}</div>{% endif %}
+{% endif %}
+{% endblock %}

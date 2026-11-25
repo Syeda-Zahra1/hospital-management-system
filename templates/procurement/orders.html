@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "base.html" import empty_state, badge %}
+{% block title %}Purchase orders | HMS Care{% endblock %}
+{% block page_title %}Purchase orders{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Create purchase orders and track their approval and fulfillment</p>{% endblock %}
+{% block content %}
+{% if not branch %}<div class="panel" style="padding:24px">Select an active branch to manage purchase orders.</div>{% else %}
+<section class="form-card"><h2>Create a purchase order</h2><form method="post" class="form-grid" data-loading>
+<input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+<div class="form-group"><label for="po-vendor">Vendor</label><select id="po-vendor" name="vendor_id" required><option value="">Select vendor</option>{% for vendor in vendors %}<option value="{{ vendor.vendor_id }}">{{ vendor.vendor_name }}</option>{% endfor %}</select></div>
+<div class="form-group"><label for="po-item">Item description</label><input id="po-item" name="item_description" maxlength="255" required></div>
+<div class="form-group"><label for="po-medicine">Medicine (optional)</label><select id="po-medicine" name="medicine_id"><option value="">Not linked to medicine</option>{% for medicine in medicines %}<option value="{{ medicine.medicine_id }}">{{ medicine.medicine_name }}</option>{% endfor %}</select></div>
+<div class="form-group"><label for="po-quantity">Quantity</label><input id="po-quantity" type="number" name="quantity" step="0.001" min="0.001" required></div>
+<div class="form-group"><label for="po-price">Unit price</label><input id="po-price" type="number" name="unit_price" step="0.01" min="0" required></div>
+<div class="form-group full"><button class="btn btn-primary" type="submit">Save draft order</button></div>
+</form></section>
+<section class="table-card" style="margin-top:24px">{% if orders %}<div class="table-wrap"><table><thead><tr><th>PO</th><th>Vendor</th><th>Date</th><th>Total</th><th>Status</th><th>Actions</th></tr></thead><tbody>
+{% for order in orders %}<tr><td>{{ order.po_number }}</td><td>{{ order.vendor_name }}</td><td>{{ order.order_date }}</td><td>{{ order.total_amount }}</td><td>{{ badge(order.status|replace('_',' ')|title) }}</td><td><div class="action-row">
+{% if order.status == 'draft' %}<form method="post" action="{{ url_for('procurement.update_order', order_id=order.purchase_order_id, action='approve') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-primary" type="submit">Approve</button></form>{% endif %}
+{% if order.status == 'approved' %}<form method="post" action="{{ url_for('procurement.update_order', order_id=order.purchase_order_id, action='send') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary" type="submit">Mark sent</button></form>{% endif %}
+</div></td></tr>{% endfor %}
+</tbody></table></div>{% else %}{{ empty_state('file-check-2', 'No purchase orders', 'Create an order after selecting a vendor.') }}{% endif %}</section>
+{% if total_pages > 1 %}<div class="pagination"><span>Page {{ page }} of {{ total_pages }} · {{ total }} orders</span>{% if page > 1 %}<a class="btn btn-secondary" href="?page={{ page - 1 }}">Previous</a>{% endif %}{% if page < total_pages %}<a class="btn btn-secondary" href="?page={{ page + 1 }}">Next</a>{% endif %}</div>{% endif %}
+{% endif %}
+{% endblock %}

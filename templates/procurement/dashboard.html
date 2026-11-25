@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "base.html" import stat_card, button_variant, empty_state %}
+{% block title %}Procurement | HMS Care{% endblock %}
+{% block page_title %}Procurement & Supply Chain{% endblock %}
+{% block page_subtitle %}<p class="page-subtitle">Vendor sourcing, purchasing, receiving and payables{% if branch %} · {{ branch.branch_name }}{% endif %}</p>{% endblock %}
+{% block content %}
+<section class="summary-grid">
+  {{ stat_card('truck', metrics.vendors, 'Active vendors') }}
+  {{ stat_card('clipboard-list', metrics.open_requisitions, 'Open requisitions') }}
+  {{ stat_card('package-check', metrics.open_orders, 'Open purchase orders') }}
+  {{ stat_card('receipt', metrics.unpaid_invoices, 'Unpaid invoices') }}
+</section>
+{% if not branch %}
+  {{ empty_state('building-2', 'Branch access required', 'Create a branch and assign your procurement account to it before managing purchases.') }}
+{% else %}
+<section class="panel" style="padding:24px;margin-top:24px">
+  <div class="section-heading"><div><span class="eyebrow">Purchasing workflow</span><h2>Manage supply operations</h2></div></div>
+  <div class="action-row">
+    {{ button_variant('Vendors', url_for('procurement.vendors'), icon='contact-round') }}
+    {{ button_variant('Requisitions', url_for('procurement.requisitions'), variant='secondary', icon='clipboard-list') }}
+    {{ button_variant('Purchase orders', url_for('procurement.orders'), variant='secondary', icon='file-check-2') }}
+    {{ button_variant('Goods receipts', url_for('procurement.receipts'), variant='secondary', icon='package-check') }}
+    {{ button_variant('Vendor invoices', url_for('procurement.invoices'), variant='secondary', icon='receipt') }}
+  </div>
+</section>
+{% endif %}
+{% endblock %}
