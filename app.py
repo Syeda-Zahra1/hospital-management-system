@@ -1467,13 +1467,16 @@ def login():
         cur.close(); conn.close()
 
         is_valid = False
-if user and user.get("is_active", True):
-    try:
-        is_valid = check_password_hash(user["password_hash"], password)
-    except Exception:
-        is_valid = False 
+        if user and user.get("is_active", True):
+            try:
+                is_valid = check_password_hash(user["password_hash"], password)
+            except (TypeError, ValueError):
+                app.logger.exception(
+                    "Unable to verify password hash for user_id=%s",
+                    user["user_id"],
+                )
 
-if is_valid:
+        if is_valid:
             try:
                 with db_cursor() as erp_cur:
                     branch = active_branch(erp_cur, user["user_id"])

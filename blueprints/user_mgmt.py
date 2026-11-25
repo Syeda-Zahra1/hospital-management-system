@@ -311,30 +311,30 @@ def sessions():
     page, per_page = _page(), 50
     with db_cursor() as cur:
         cur.execute(
-            """SELECT COUNT(*) AS total FROM user_sessions
-               WHERE revoked_at IS NULL AND expires_at > CURRENT_TIMESTAMP"""
+            """SELECT COUNT(*) AS total
+               FROM user_sessions s
+               JOIN users u USING (user_id)
+               WHERE s.revoked_at IS NULL
+                 AND s.expires_at > CURRENT_TIMESTAMP
+                 AND u.is_active = TRUE"""
         )
         total = cur.fetchone()["total"]
         total_pages = max(1, (total + per_page - 1) // per_page)
         page = min(page, total_pages)
-        cur.execute("""
-    SELECT 
-        u.user_id, 
-        u.username, 
-        u.full_name, 
-        u.role, 
-        u.branch_id AS user_branch_id,   -- Yahan alias lagaya hai
-        s.session_token_hash, 
-        s.ip_address, 
-        s.user_agent, 
-        s.created_at, 
-        s.last_seen_at, 
-        s.expires_at, 
-        s.revoked_at
-    FROM users u
-    LEFT JOIN user_sessions s ON u.user_id = s.user_id
-    WHERE s.revoked_at IS NULL
-""")
+        cur.execute(
+            """SELECT s.user_session_id, s.user_id, u.username, u.full_name, u.role,
+                      s.ip_address, s.user_agent, s.created_at, s.last_seen_at,
+                      s.expires_at, s.branch_id, b.branch_name, s.session_token_hash
+               FROM user_sessions s
+               JOIN users u USING (user_id)
+               LEFT JOIN branches b ON b.branch_id = s.branch_id
+               WHERE s.revoked_at IS NULL
+                 AND s.expires_at > CURRENT_TIMESTAMP
+                 AND u.is_active = TRUE
+               ORDER BY s.last_seen_at DESC
+               LIMIT %s OFFSET %s""",
+            (per_page, (page - 1) * per_page),
+        )
         session_rows = cur.fetchall()
     current_hash = current_session_hash()
     for row in session_rows:
