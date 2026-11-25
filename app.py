@@ -1466,7 +1466,14 @@ def login():
         user = cur.fetchone()
         cur.close(); conn.close()
 
-        if user and user.get("is_active", True) and check_password_hash(user['password_hash'], password):
+        is_valid = False
+if user and user.get("is_active", True):
+    try:
+        is_valid = check_password_hash(user["password_hash"], password)
+    except Exception:
+        is_valid = False 
+
+if is_valid:
             try:
                 with db_cursor() as erp_cur:
                     branch = active_branch(erp_cur, user["user_id"])
