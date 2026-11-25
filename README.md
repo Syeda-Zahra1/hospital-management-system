@@ -95,15 +95,21 @@ python -m pip install -r requirements.txt
 
 ### 3. Configure environment variables
 
-Create a local `.env` file in the project directory (it is ignored by Git) and set:
+Copy `.env.example` to `.env` in the project directory. The `.env` file is ignored by Git:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+On macOS or Linux, use `cp .env.example .env`. Set `DATABASE_URL` to your PostgreSQL connection URL and replace `FLASK_SECRET_KEY` with a unique random value:
 
 ```env
-DATABASE_URL=replace-with-your-postgresql-connection-url
-FLASK_SECRET_KEY=replace-with-a-long-random-secret
+DATABASE_URL=postgresql://username:password@localhost:5432/hospital_management
+FLASK_SECRET_KEY=replace-with-a-unique-random-secret
 FLASK_DEBUG=false
 ```
 
-Replace the `DATABASE_URL` value with the connection URL from your PostgreSQL provider. For local development, set `FLASK_DEBUG=true` if you need Flask's debugger. Do not enable the debugger in a public deployment. Keep real credentials and keys out of source control.
+For local development, set `FLASK_DEBUG=true` only if you need Flask's debugger. Do not enable the debugger in a public deployment. Keep `.env`, database URLs, Flask secrets, and API keys out of source control.
 
 ### 4. Prepare the database
 
@@ -124,7 +130,7 @@ Optional scripts:
 - `INSERTING_HMS.sql` adds sample hospital data. Use it only in a development/test database; it contains example patient and clinical information.
 - `VIEWS_HMS.sql` and `TESTING_HMS.sql` provide optional views and database testing queries. Review their table dependencies before applying them.
 
-The `setup_users.py` script creates or refreshes demo staff accounts, including an accountant, HR manager, procurement officer, and branch manager. Run it only against a local/test database, and inspect its contents before use. Its credentials are for demonstration, not production.
+The `setup_users.py` script can create or refresh demo staff accounts. It is disabled by default and requires `HMS_ALLOW_DEMO_USERS=true` plus a unique password of at least 12 characters for each `HMS_DEMO_PASSWORD_*` setting in `.env.example`. Enable it only against a local/test database. It resets those demo account passwords and revokes their active sessions; never use demo accounts or passwords in production.
 
 ### ERP workflow notes
 
