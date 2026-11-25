@@ -177,4 +177,4 @@ Authorization is enforced by the Flask routes; interface navigation is not a sub
 
 ## Contributing and validation
 
-There is no automated test suite currently included. Use [TESTING_CHECKLIST.md](TESTING_CHECKLIST.md) for manual chatbot checks, and verify database connectivity, role access, and each workflow in a non-production environment after making changes.
+Run the automated unit tests with `python -m unittest discover -s tests -v`. Use [TESTING_CHECKLIST.md](TESTING_CHECKLIST.md) for manual chatbot checks, and verify database connectivity, role access, and each workflow in a non-production environment after making changes.
